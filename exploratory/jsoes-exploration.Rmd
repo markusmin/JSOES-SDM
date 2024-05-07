@@ -1,0 +1,181 @@
+---
+title: "JSOES-exploration"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output: html_document
+---
+### Description
+Exploratory analysis for JSOES data.
+
+
+```{r load-libraries}
+library(tidyverse)
+library(here)
+library(readxl)
+library(janitor)
+library(sf)
+library(sdmTMB)
+library(rnaturalearth)
+library(sdmTMBextra)
+library(fmesher)
+```
+
+```{r load-reformat-data}
+jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.2.24_FINAL.xlsx")))
+
+```
+
+```{r plot-stations}
+# Load some shapefiles - these are not on github
+# load USA
+usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp")
+# load BC
+BC_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp")
+
+survey_area_basemap <- ggplot(usa_spdf) +
+  geom_sf() +
+  geom_sf(data = BC_spdf) +
+  coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+
+# get stations
+jsoes %>% 
+  filter(!(is.na(mid_long))) %>% 
+  filter(!(duplicated(station))) -> jsoes_stations
+
+survey_area_basemap +
+  geom_point(data = jsoes_stations, aes(x = mid_long, y = mid_lat)) +
+  geom_text(data = jsoes_stations, aes(x = mid_long, y = mid_lat+0.1, label = station), size = 2) -> jsoes_map_stations
+
+# jsoes_map_stations
+
+# what if we plot all samples?
+survey_area_basemap +
+  geom_point(data = jsoes, aes(x = mid_long, y = mid_lat), size = 0.5) -> jsoes_map_all_samples
+
+```
+
+```{r reformat_data}
+species_column_names <- colnames(jsoes)[32:ncol(jsoes)]
+
+jsoes %>% 
+  pivot_longer(., cols = all_of(species_column_names), values_to = "n_per_km", names_to = "species") %>% 
+  mutate(n = n_per_km*trawl_dist_km) -> jsoes_long
+
+# n isn't getting me to a whole number?
+jsoes_long %>% 
+  group_by(species) %>% 
+  summarise(total = sum(n)) %>% 
+  arrange(desc(total)) -> jsoes_species_sum
+
+```
+
+
+
+```{r distribution_maps}
+# write a function that plots the abundance of a species in a year
+plot_distribution <- function(species_select, year_select = "all years", data){
+  if(year_select == "all years"){
+    data %>% 
+      filter(species == species_select) -> plot_data
+    
+  } else {
+    data %>% 
+      filter(species == species_select & year %in% year_select) -> plot_data
+  }
+  
+  survey_area_basemap +
+    geom_point(data = plot_data, aes(x = mid_long, y = mid_lat, size = n_per_km),
+               alpha = 0.5, color = "#2ca25f") +
+    ggtitle(paste0(species_select, "-", year_select))-> dist_plot
+  
+  return(dist_plot)
+}
+
+plot_distribution(species_select = "water_jelly", year_select = 2008, data = jsoes_long)
+
+plot_distribution(species_select = "water_jelly", data = jsoes_long)
+
+plot_distribution(species_select = "chinook_salmon_yearling_interior_sp", data = jsoes_long)
+
+```
+
+
+```{r fit-sdmTMB}
+# here I'm exploring the sdmTMB functionality
+csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
+
+# for now, let's drop any data that's missing lat/longs
+csyis <- filter(csyis, !(is.na(mid_lat)))
+
+# extremely zero-inflated
+hist(csyis$n_per_km)
+summary(csyis$n_per_km)
+
+# Note that cutoff is in the same units as your data - so a cutoff of 10
+# when you have lat/long is extremely different than cutoff of 10 with km (as in the vignette)
+csyis_mesh <- make_mesh(csyis, xy_cols = c("mid_long", "mid_lat"), cutoff = 0.1)
+plot(csyis_mesh)
+
+# Fit sdmTMB with no covariates, no spatial random effects
+null_fit_csyis <- sdmTMB(n_per_km ~ 1,
+                         data = csyis,
+                         mesh = csyis_mesh,
+                         spatial = "off")
+
+# Fit sdmTMB with spatial random effects
+
+# test
+csyis %>% 
+  dplyr::rename(X = mid_long, Y = mid_lat) -> csyis_spatial 
+
+csyis_mesh_spatial  <- make_mesh(csyis_spatial, xy_cols = c("X", "Y"), cutoff = 0.1)
+
+# end test
+spatial_fit_csyis <- sdmTMB(n_per_km ~ 1,
+                         data = csyis_spatial,
+                         mesh = csyis_mesh_spatial,
+                         spatial = "on")
+
+```
+
+```{r predict_grid}
+# Let's make a mesh for the survey area
+# Make a big bounding box, from 44 to 48.5 lat, -126 to -123 long, then take difference with land
+grid = st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
+st_difference(grid, usa_spdf) -> survey_grid
+st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
+
+
+# predict to the grid
+pred.null = predict(null_fit_csyis, newdata = survey_grid_df, return_tmb_object = FALSE)
+
+ggplot(pred.null) +
+  geom_sf(aes(fill = est)) +
+  ggtitle("Null model")
+
+# Look! It's an intercept only model! go me!
+
+# Predict with spatial random effects
+# create projection matrix from vertices to grid
+# A_gs = fm_evaluator(csyis_mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
+
+pred.spatial = predict(spatial_fit_csyis, newdata = st_centroid(survey_grid_df), return_tmb_object = FALSE)
+pred.spatial = predict(spatial_fit_csyis, newdata = data.frame(X = seq(-126, -123, 0.1), Y = seq(44, 47, 0.1)), return_tmb_object = FALSE)
+
+# plot predictions
+ggplot(pred.spatial, aes(x = X, y = Y, fill = est)) +
+  geom_raster() +
+  ggtitle("Spatial model")
+
+```
+
