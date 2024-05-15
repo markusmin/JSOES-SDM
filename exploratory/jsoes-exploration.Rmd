@@ -166,11 +166,10 @@ ggplot(pred.null) +
 # Look! It's an intercept only model! go me!
 
 # Predict with spatial random effects
-# create projection matrix from vertices to grid
-# A_gs = fm_evaluator(csyis_mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
+# create projection grid for survey
+predict_grid <- as.data.frame(st_coordinates(st_centroid(survey_grid_df)))
 
-pred.spatial = predict(spatial_fit_csyis, newdata = st_centroid(survey_grid_df), return_tmb_object = FALSE)
-pred.spatial = predict(spatial_fit_csyis, newdata = data.frame(X = seq(-126, -123, 0.1), Y = seq(44, 47, 0.1)), return_tmb_object = FALSE)
+pred.spatial = predict(spatial_fit_csyis, newdata = predict_grid, return_tmb_object = FALSE)
 
 # plot predictions
 ggplot(pred.spatial, aes(x = X, y = Y, fill = est)) +
