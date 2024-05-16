@@ -167,14 +167,14 @@ ggplot(pred.null) +
 
 # Predict with spatial random effects
 # create projection grid for survey
-predict_grid <- as.data.frame(st_coordinates(st_centroid(survey_grid_df)))
-
-pred.spatial = predict(spatial_fit_csyis, newdata = predict_grid, return_tmb_object = FALSE)
-
-# plot predictions
-ggplot(pred.spatial, aes(x = X, y = Y, fill = est)) +
-  geom_raster() +
-  ggtitle("Spatial model")
+# predict_grid <- as.data.frame(st_coordinates(st_centroid(survey_grid_df)))
+# 
+# pred.spatial = predict(spatial_fit_csyis, newdata = predict_grid, return_tmb_object = FALSE)
+# 
+# # plot predictions
+# ggplot(pred.spatial, aes(x = X, y = Y, fill = est)) +
+#   geom_raster() +
+#   ggtitle("Spatial model")
 
 ```
 
