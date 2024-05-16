@@ -55,6 +55,11 @@ csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
 # for now, let's drop any data that's missing lat/longs
 csyis <- filter(csyis, !(is.na(mid_lat)))
 
+# Change latitude and longitude columns to X and Y to avoid problems later
+csyis %>% 
+  dplyr::rename(X = mid_long, Y = mid_lat) -> csyis
+
+
 # quick check
 hist(csyis$n_per_km)
 summary(csyis$n_per_km)
@@ -76,7 +81,7 @@ spde <- fm_fem( mesh,
                 order = 2 )
 
 # create projection matrix from vertices to samples
-A_is = fm_evaluator(mesh, loc = as.matrix(data.frame(X = csyis$mid_long, Y = csyis$mid_lat)))$proj$A
+A_is = fm_evaluator(mesh, loc = as.matrix(data.frame(X = csyis$X, Y = csyis$Y)))$proj$A
 
 # create projection matrix from vertices to grid
 A_gs = fm_evaluator( mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
@@ -123,6 +128,28 @@ Opt$SD = sdreport( Obj, bias.correct=TRUE )
 report = Obj$report()
 ```
 
+```{r fit-model-1-sdmTMB}
+csyis_mesh <- make_mesh(csyis, xy_cols = c("X", "Y"), cutoff = 0.1)
+# plot(csyis_mesh)
+# for consistency, use the same mesh created above
+mesh_sdmTMB <- make_mesh(csyis, xy_cols = c("X", "Y"), mesh = mesh)
+
+# confirm that the meshes used for bespoke TMB and sdmTMB are the same
+plot(csyis_mesh)
+plot(mesh_sdmTMB)
+plot(mesh)
+# They look too fine compared to the one created by sdmTMB by default...
+
+# Fit sdmTMB with effect of year and effect of space, no interaction (model 1, null model)
+jsoes_null_sdmTMB <- sdmTMB(n_per_km ~ 1,
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "off")
+```
+
+
 ```{r plot-model-1-TMB}
 # Load Jim's sample_var() function
 source("/Users/markusmin/Documents/UW_courses/Spring_2024/FISH556/Spatio-temporal-models-for-ecologists-1.0.0/Shared_functions/sample_var.R")
@@ -159,6 +186,33 @@ ggplot(grid_density) +
 # grid_SE = st_sf(grid, SE_ln_d_gt=SE_gt, crs=st_crs(grid) )
 
 ```
+
+```{r plot-model-1-sdmTMB}
+# For newdata, use the same survey_grid_df from above
+as.data.frame(st_coordinates(st_centroid(survey_grid_df))) -> predict_grid
+
+# add year column for each
+predict_grid %>% 
+  mutate(year = 1998) -> predict_grid_1998
+
+pred.jsoes_null_sdmTMB = predict(jsoes_null_sdmTMB, newdata = predict_grid_1998, return_tmb_object = FALSE)
+
+# This is a workaround to get it into the right format which I think (?) works...?
+grid_density_sdmTMB = st_sf(st_as_sfc(survey_grid_df), est=pred.jsoes_null_sdmTMB$est, crs=st_crs(survey_grid_df) )
+
+ggplot(grid_density_sdmTMB) +
+  geom_sf(aes(fill = est))
+
+# compare with the bespoke TMB implementation
+ggplot(grid_density) +
+  geom_sf(aes(fill = ln_d_gt.1))
+# Patterns are not the same! 
+
+# ggplot(pred.jsoes_null_sdmTMB,aes(x = X, y = Y, color = est))  +
+#   geom_raster() +
+#   ggtitle("Null model")
+```
+
 
 
 The second model adds a term for a spatio-temporal variable, $\epsilon_{s,t}$.
