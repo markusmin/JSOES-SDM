@@ -141,12 +141,13 @@ plot(mesh)
 # They look too fine compared to the one created by sdmTMB by default...
 
 # Fit sdmTMB with effect of year and effect of space, no interaction (model 1, null model)
-jsoes_null_sdmTMB <- sdmTMB(n_per_km ~ 1,
+jsoes_null_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
                          data = csyis,
                          mesh = mesh_sdmTMB,
                          time = "year",
                          spatial = "on",
-                         spatiotemporal = "off")
+                         spatiotemporal = "off",
+                         family = tweedie(link = "log"))
 ```
 
 
@@ -194,25 +195,63 @@ as.data.frame(st_coordinates(st_centroid(survey_grid_df))) -> predict_grid
 # add year column for each
 predict_grid %>% 
   mutate(year = 1998) -> predict_grid_1998
+predict_grid %>% 
+  mutate(year = 1999) -> predict_grid_1999
 
-pred.jsoes_null_sdmTMB = predict(jsoes_null_sdmTMB, newdata = predict_grid_1998, return_tmb_object = FALSE)
+pred.jsoes_null_sdmTMB_1998 = predict(jsoes_null_sdmTMB, newdata = predict_grid_1998, return_tmb_object = FALSE)
+pred.jsoes_null_sdmTMB_1999 = predict(jsoes_null_sdmTMB, newdata = predict_grid_1999, return_tmb_object = FALSE)
 
 # This is a workaround to get it into the right format which I think (?) works...?
-grid_density_sdmTMB = st_sf(st_as_sfc(survey_grid_df), est=pred.jsoes_null_sdmTMB$est, crs=st_crs(survey_grid_df) )
+grid_density_sdmTMB_1998 = st_sf(st_as_sfc(survey_grid_df), est=pred.jsoes_null_sdmTMB_1998$est, crs=st_crs(survey_grid_df) )
+grid_density_sdmTMB_1999 = st_sf(st_as_sfc(survey_grid_df), est=pred.jsoes_null_sdmTMB_1999$est, crs=st_crs(survey_grid_df) )
 
-ggplot(grid_density_sdmTMB) +
+
+
+# compare sdmTMB with bespoke TMB implementation
+# Plots:
+ggplot(grid_density_sdmTMB_1998) +
   geom_sf(aes(fill = est))
 
-# compare with the bespoke TMB implementation
+ggplot(grid_density_sdmTMB_1999) +
+  geom_sf(aes(fill = est))
+
 ggplot(grid_density) +
   geom_sf(aes(fill = ln_d_gt.1))
-# Patterns are not the same! 
+
+ggplot(grid_density) +
+  geom_sf(aes(fill = ln_d_gt.2))
+# Patterns look very similar - but not identical
+
+# Parameter estimates:
+jsoes_null_sdmTMB$sd_report
+tidy(jsoes_null_sdmTMB, conf.int = TRUE)
+tidy(jsoes_null_sdmTMB, "ran_pars", conf.int = TRUE)
+report
+
+  # TMB model parameters: beta_t; ln_tau; ln_kappa; ln_phi; finv_power; omega_s
+
 
 # ggplot(pred.jsoes_null_sdmTMB,aes(x = X, y = Y, color = est))  +
 #   geom_raster() +
 #   ggtitle("Null model")
 ```
 
+```{r model-diagnostics}
+csyis$null_resids <- residuals(jsoes_null_sdmTMB)
+qqnorm(csyis$null_resids)
+qqline(csyis$null_resids)
+
+ggplot(csyis, aes(X, Y, col = null_resids)) +
+  scale_colour_gradient2() +
+  geom_point() +
+  facet_wrap(~year) +
+  coord_fixed()
+
+ggplot(subset(csyis, year = 1998), aes(X, Y, col = null_resids)) +
+  scale_colour_gradient2() +
+  geom_point() +
+  coord_fixed()
+```
 
 
 The second model adds a term for a spatio-temporal variable, $\epsilon_{s,t}$.
