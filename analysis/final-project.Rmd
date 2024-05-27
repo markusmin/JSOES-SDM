@@ -55,9 +55,22 @@ csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
 # for now, let's drop any data that's missing lat/longs
 csyis <- filter(csyis, !(is.na(mid_lat)))
 
-# Change latitude and longitude columns to X and Y to avoid problems later
+# Add UTM coordinates to get an equal distance projection and get lat/longs
+utm_crs <- get_crs(csyis, c("mid_long", "mid_lat")) # check that
+
+csyis <- add_utm_columns(
+  csyis,
+  ll_names = c("mid_long", "mid_lat"),
+  ll_crs = 4326,
+  utm_names = c("Lon.km", "Lat.km"),
+  utm_crs = utm_crs,
+  units = c("km")
+)
+
+
+# Change Lon.km and Lat.km columns to X and Y to avoid problems later
 csyis %>% 
-  dplyr::rename(X = mid_long, Y = mid_lat) -> csyis
+  dplyr::rename(X = Lon.km, Y = Lat.km) -> csyis
 
 
 # quick check
@@ -77,7 +90,14 @@ mesh = fm_mesh_2d( st_coordinates(st_centroid(survey_grid_df)),
                    plot.delay = NULL, 
                    refine = TRUE )
 
-spde <- fm_fem( mesh, 
+# second attempt at a mesh
+inla_mesh <- fmesher::fm_mesh_2d_inla(
+  loc = cbind(csyis$X, csyis$Y), # coordinates
+  cutoff = 10 # minimum triangle edge length
+)
+
+
+spde <- fm_fem( inla_mesh, 
                 order = 2 )
 
 # create projection matrix from vertices to samples
@@ -85,6 +105,19 @@ A_is = fm_evaluator(mesh, loc = as.matrix(data.frame(X = csyis$X, Y = csyis$Y)))
 
 # create projection matrix from vertices to grid
 A_gs = fm_evaluator( mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
+
+# Make the sdmTMB mesh
+csyis_mesh <- make_mesh(csyis, xy_cols = c("X", "Y"), cutoff = 10)
+# plot(csyis_mesh)
+# for consistency, use the inla_mesh for all
+mesh_sdmTMB <- make_mesh(csyis, xy_cols = c("X", "Y"), mesh = inla_mesh)
+
+# confirm that the meshes used for bespoke TMB and sdmTMB are the same
+plot(csyis_mesh)
+plot(inla_mesh)
+plot(mesh_sdmTMB)
+plot(mesh)
+# Let's use the inla mesh, it looks most reasonable (and very close to the default sdmTMB make_mesh one)
 ```
 
 
@@ -119,27 +152,16 @@ Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year),
              "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
 Params = list( "beta_t"=rep(0, length(unique(csyis$year))), "ln_tau"=0, "ln_kappa"=0, 
                "ln_phi" = 0, "finv_power" = 0, "omega_s"=rnorm(nrow(spde$c0)))
-Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s"),
+null_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s"),
                  DLL = "jsoes_null_sdm_1")
 
 # Optimize
-Opt = nlminb( start=Obj$par, obj=Obj$fn, grad=Obj$gr )
-Opt$SD = sdreport( Obj, bias.correct=TRUE )
-report = Obj$report()
+null_Opt = nlminb( start=null_Obj$par, obj=null_Obj$fn, grad=null_Obj$gr )
+null_Opt$SD = sdreport( null_Obj, bias.correct=TRUE )
+null_report = null_Obj$report()
 ```
 
 ```{r fit-model-1-sdmTMB}
-csyis_mesh <- make_mesh(csyis, xy_cols = c("X", "Y"), cutoff = 0.1)
-# plot(csyis_mesh)
-# for consistency, use the same mesh created above
-mesh_sdmTMB <- make_mesh(csyis, xy_cols = c("X", "Y"), mesh = mesh)
-
-# confirm that the meshes used for bespoke TMB and sdmTMB are the same
-plot(csyis_mesh)
-plot(mesh_sdmTMB)
-plot(mesh)
-# They look too fine compared to the one created by sdmTMB by default...
-
 # Fit sdmTMB with effect of year and effect of space, no interaction (model 1, null model)
 jsoes_null_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
                          data = csyis,
@@ -160,7 +182,7 @@ source("/Users/markusmin/Documents/UW_courses/Spring_2024/FISH556/Spatio-tempora
 
 # density
 # ln_d_gt = ifelse( report$ln_d_gt<max(report$ln_d_gt-log(1e3)), NA, report$ln_d_gt )
-ln_d_gt <- report$ln_d_gt
+ln_d_gt <- null_report$ln_d_gt
 grid_density = st_sf(st_as_sfc(survey_grid_df), ln_d_gt=ln_d_gt, crs=st_crs(survey_grid_df) )
 
 # let's confirm that the model is working how it should: Each year should have the same
@@ -226,7 +248,6 @@ ggplot(grid_density) +
 jsoes_null_sdmTMB$sd_report
 tidy(jsoes_null_sdmTMB, conf.int = TRUE)
 tidy(jsoes_null_sdmTMB, "ran_pars", conf.int = TRUE)
-report
 
   # TMB model parameters: beta_t; ln_tau; ln_kappa; ln_phi; finv_power; omega_s
 
@@ -256,16 +277,336 @@ ggplot(subset(csyis, year = 1998), aes(X, Y, col = null_resids)) +
 
 The second model adds a term for a spatio-temporal variable, $\epsilon_{s,t}$.
 
+This model has the following equation:
+
+$$
+log(d_{s,t}) \sim \beta_t + \omega_s + \epsilon_{s,t}\\
+\omega \sim \textrm{MVN}(\textbf{0},\sigma_\omega^2\textbf{R}_\omega) \\
+\epsilon_{t} \sim \textrm{MVN}(\textbf{0},\sigma_\epsilon^2\textbf{R}_\epsilon) \\
+$$
+
+Where:
+- $s$ is the station
+- $t$ is the year
+- $d$ is the density of a species caught in a tow
+- $\beta_t$ is the median density in year t
+- $\omega_s$ is the density for location $s$ relative to the median location that is typical across years
+- $\epsilon_{s,t}$ is a spatio-temporal variable that describes the effect of each combination of year and location on density
+- $\textbf{R}_\omega$ = $\textbf{R}_\epsilon$ is the spatial correlation. These are the same because the correlation structure is set up using the SPDE method.
+- $\sigma_\omega$ is the spatial variance. This is controlled by the parameter $\tau_\omega$ in the SPDE calculation.
+- $\sigma_\epsilon$ is the spatio-temporal variance. This is controlled by the parameter $\tau_\epsilon$ in the SPDE calculation.
+
+However, because we are using the SPDE method to model a precision matrix for our grid that will then be shared for both the spatial ($\omega_s$) and spatio-temoral ($\epsilon_{s,t}) terms, $\sigma_\omega^2\textbf{R}_\omega$ =  $\sigma_\epsilon^2\textbf{R}_\epsilon$ = $\Sigma$ = $Q_{spde}^{-1}$.
+
+
+```{r fit-model2-TMB}
+compile(here::here("analysis", "jsoes_st_sdm_3.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_st_sdm_3")))
+
+Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
+             "n_t" = length(unique(csyis$year)),
+             "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
+Params = list( "beta_t"=rep(0, length(unique(csyis$year))), 
+               "ln_tau_omega"=0, "ln_tau_epsilon"=0,
+               "ln_kappa"=0, "ln_phi" = 0, 
+               "finv_power" = 0, "omega_s"=rnorm(nrow(spde$c0)),
+               "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
+
+st_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st"),
+                 DLL = "jsoes_st_sdm_3")
+
+# Optimize
+st_Opt = nlminb( start=st_Obj$par, obj=st_Obj$fn, grad=st_Obj$gr )
+# Opt$SD = sdreport( Obj, bias.correct=TRUE )
+st_report = st_Obj$report()
+```
+
+```{r fit-model-2-sdmTMB}
+# Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
+jsoes_st_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "iid",
+                         family = tweedie(link = "log"))
+```
 
 
 The third model now models the spatio-temporal variable, $\epsilon_{s,t}$, as a temporally autocorrelated process.
 
+This model has the following equation:
+
+$$
+log(d_{s,t}) \sim \beta_t + \omega_s + \epsilon_{s,t}\\
+\omega \sim \textrm{MVN}(\textbf{0},\sigma_\omega^2\textbf{R}_\omega) \\
+\epsilon_{t} \sim \textrm{MVN}(\textbf{0},\sigma_\epsilon^2\textbf{R}_\epsilon) \\
+$$
+
+Where:
+- $s$ is the station
+- $t$ is the year
+- $d$ is the density of a species caught in a tow
+- $\beta_t$ is the median density in year t
+- $\omega_s$ is the density for location $s$ relative to the median location that is typical across years
+- $\epsilon_{s,t}$ is a spatio-temporal variable that describes the effect of each combination of year and location on density
+- $\textbf{R}_\omega$ = $\textbf{R}_\epsilon$ is the spatial correlation. These are the same because the correlation structure is set up using the SPDE method.
+- $\sigma_\omega$ is the spatial variance. This is controlled by the parameter $\tau_\omega$ in the SPDE calculation.
+- $\sigma_\epsilon$ is the spatio-temporal variance. This is controlled by the parameter $\tau_\epsilon$ in the SPDE calculation.
+
+However, because we are using the SPDE method to model a precision matrix for our grid that will then be shared for both the spatial ($\omega_s$) and spatio-temoral ($\epsilon_{s,t}) terms, $\sigma_\omega^2\textbf{R}_\omega$ =  $\sigma_\epsilon^2\textbf{R}_\epsilon$ = $\Sigma$ = $Q_{spde}^{-1}$.
+
+
+```{r fit-model3-TMB}
+compile(here::here("analysis", "jsoes_stac_sdm.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_stac_sdm")))
+
+Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
+             "n_t" = length(unique(csyis$year)),
+             "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
+Params = list( "beta_t"=rep(0, length(unique(csyis$year))), 
+               "ln_tau_omega"=0, "ln_tau_epsilon"=0,
+               "ln_kappa"=0, "logit_rhoE" = 0,  "ln_phi" = 0, 
+               "finv_power" = 0, "omega_s"=rnorm(nrow(spde$c0)),
+               "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
+
+stac_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st"),
+                 DLL = "jsoes_stac_sdm")
+
+# Optimize
+stac_Opt = nlminb( start=stac_Obj$par, obj=stac_Obj$fn, grad=stac_Obj$gr )
+# Opt$SD = sdreport( Obj, bias.correct=TRUE )
+stac_report = stac_Obj$report()
+```
+
+```{r fit-model-3-sdmTMB}
+# Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
+jsoes_stac_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "ar1",
+                         family = tweedie(link = "log"))
+```
+
+
+The fourth model now models the temporal main effect, $\beta_t$, as a temporally autocorrelated process.
+```{r fit-model4-TMB}
+compile(here::here("analysis", "jsoes_tempac_sdm.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_tempac_sdm")))
+
+Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
+             "n_t" = length(unique(csyis$year)),
+             "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
+Params = list( "beta_t"=rep(0, length(unique(csyis$year))), 
+               "ln_tau_omega"=0, "ln_tau_epsilon"=0,
+               "ln_kappa"=0, "logit_rhoB" = 0,  "ln_phi" = 0, 
+               "finv_power" = 0, "ln_sigmaB" = 0, "omega_s"=rnorm(nrow(spde$c0)),
+               "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
+
+tempac_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st", "beta_t"),
+                 DLL = "jsoes_tempac_sdm")
+
+# Optimize
+tempac_Opt = nlminb( start=tempac_Obj$par, obj=tempac_Obj$fn, grad=tempac_Obj$gr )
+# Opt$SD = sdreport( tempac_Obj, bias.correct=TRUE )
+tempac_report = tempac_Obj$report()
+```
+
+```{r fit-model-4-sdmTMB}
+# Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
+# jsoes_tempac_sdmTMB <- sdmTMB(n_per_km ~ 0,
+#                          data = csyis,
+#                          mesh = mesh_sdmTMB,
+#                          time = "year",
+#                          time_varying = ~ 0 + as.factor(year),
+#                          time_varying_type = "ar1",
+#                          spatial = "on",
+#                          spatiotemporal = "iid",
+#                          family = tweedie(link = "log"),
+#                          silent = FALSE)
+```
+
+The fifth model now models both the spatio-temporal variable, $\epsilon_{s,t}$, and the temporal main effect, $\beta_t$, as temporally autocorrelated processes.
+
+
+## Models without covariates: Cross-validation
+
+
+```{r}
+# Set up for parallelization
+library(future)
+plan(multisession, workers = 4)
+
+
+
+# Model 1: Null model
+sanity(jsoes_null_sdmTMB)
+AIC(jsoes_null_sdmTMB)
+jsoes_null_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "off",
+                         family = tweedie(link = "log"),
+                         k_folds = 4)
+
+
+# Model 2: Spatiotemporal, IID
+sanity(jsoes_st_sdmTMB)
+AIC(jsoes_st_sdmTMB)
+jsoes_st_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "iid",
+                         family = tweedie(link = "log"),
+                         k_folds = 4)
+
+
+# Model 3: Spatiotemporal, AR1
+sanity(jsoes_stac_sdmTMB)
+AIC(jsoes_stac_sdmTMB)
+
+
+# Model 4: Spatiotemporal, IID + AR1 for temporal main effect
+
+
+
+```
+
+
+## Predictions + projections
+
+```{r predict-to-grid}
+# create base map
+survey_area_basemap <- ggplot(usa_spdf) +
+  geom_sf() +
+  geom_sf(data = BC_spdf) +
+  coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+
+# create new grid
+# create a polygon based off the mesh boundaries
+# CRS 32610 is UTM zone 10N, which is the UTM zone that corresponds to the survey area
+st_as_sf(as.data.frame(mesh_sdmTMB$loc_xy), coords = c("X", "Y"),
+         crs = 32610) -> mesh_sf
+
+new_poly <- st_convex_hull(mesh_sf)
+plot(new_poly)
+st_crs(new_poly)
+
+# remove land from polygon
+coast_proj <- sf::st_transform(usa_spdf$geometry, crs = 32610)
+
+
+poly <- st_difference(new_poly, coast_proj)
+st_crs(poly) 
+plot(poly)
+st_bbox(poly)
+
+
+# create a grid within the polygon using the raster package
+# resolution <- 2000 # poly is in meters; 2000 is pretty fine: 2000m x 2000m = 4 km2
+resolution <- 5 # poly is in km I believe; 5 x 5 = 25 km2
+r <- raster::raster(as(poly, "Spatial"), resolution = resolution)
+rr <- raster::rasterize(as(poly, "Spatial"), r, getCover = TRUE)
+plot(rr)
+
+# convert to data frame and calculate grid cell area for each row
+grid <- as.data.frame(raster::rasterToPoints(rr))
+grid$area <- grid$layer * resolution * resolution # meters squared
+grid <- dplyr::filter(grid, area > 0) |> 
+  dplyr::select(-layer)
+
+grid %>% 
+  dplyr::rename(X = x, Y = y) -> grid
+
+# grid$X <- grid$x / 1000
+# grid$Y <- grid$y / 1000
+grid$area.km <- grid$area / 1e03
+
+
+# plot to see a display of grid cell areas coded by color
+ggplot(grid, aes(X, Y, colour = area.km)) +
+  geom_tile(width = 10, height = 10, fill = NA) + # in meters
+  scale_colour_viridis_c(direction = -1) +
+  geom_point(size = 0.5) +
+  coord_fixed()
+
+grid_yrs <- replicate_df(grid, "year", unique(csyis$year))
+
+
+# predict to grid using jsoes_st_sdmTMB
+predict_st = predict(jsoes_st_sdmTMB, newdata = grid_yrs, return_tmb_object = FALSE)
+
+```
+
+```{r create-map}
+survey_area_basemap + 
+  # geom_tile(data = predict_st, aes(x = X*1000, y = Y*1000, fill = exp(est))) +
+  geom_tile(data = predict_st, aes(x = X, y = Y, fill = exp(est))) +
+  scale_fill_viridis_c( trans = "sqrt",
+                        # trim extreme high values to make spatial variation more visible
+                        na.value = "yellow", limits = c(0, quantile(exp(predict_st$est), 0.995))) +
+  facet_wrap(~year) +
+  theme_light() +
+  labs(fill = "Predicted\nabundance") +
+  labs(x = "Longitude", y = "Latitude")+
+  ggtitle("Spatiotemporal model, no covariates")
+```
+
 
 ## Models with covariates
 
+#### Covariate exploration
+
+Primary candidates for covariates are the following:
+
+- Station depth (stn_depth_m)
+- Nautical miles from shore (nmi_from_shore)
+- SST (x3m_temp_c)
+
+
+Future covariates could include many of the other nutrient/chlorophyll information that is also collected
+- Chlorophyll (x3m_Chl_ugL)
+
+```{r covariate-exploration}
+ggplot(jsoes, aes(x = as.factor(nmi_from_shore), y = chinook_salmon_yearling_interior_sp)) +
+         geom_boxplot()
+
+ggplot(jsoes, aes(x = stn_depth_m, y = chinook_salmon_yearling_interior_sp)) +
+         geom_point()
+
+ggplot(jsoes, aes(x = x3m_temp_c, y = chinook_salmon_yearling_interior_sp)) +
+         geom_point()
+
+# look at correlation between nmi_from_shore and stn_depth_m
+ggplot(jsoes, aes(x = nmi_from_shore, y = stn_depth_m)) +
+         geom_point()
+cor(jsoes$nmi_from_shore, jsoes$stn_depth_m)
+# yeah pretty correlated, should probably only choose one.
+# I am going to say that for now, I think that we'll include distance from shore,
+# since for a pelagic species that seems to make more ecological sense
+
+```
+
+
+
 Based on our model selection process for the selection of spatial and temporal effects, we have now added covariates into our best model.
 
-The third, and most complex spatio-temporal model, is a model where we have all of the elements of the second model, but now with covariates included.
 
 $$
 log(d_{s,t}) \sim \beta_t + \textbf{x}_{s,t}\gamma + \omega_s + \epsilon_{s,t} \\
@@ -290,19 +631,30 @@ $\textbf{x}_{s,t}$ includes the following parameters whose effects are described
 - SST
 - more...
 
-### bespoke TMB implementation
-```{r}
+
+## Area-weighted indices of abundance
 
 
-set.seed(556)
+```{r index_standardization_function}
+# here, write a function that generates an index of abundance across our study time period
+```
 
-
+```{r index_standardization_implementation}
+# here, generate an index of abundance for our different Genetic Stock groups
 ```
 
 
 
-### sdmTMB package implementation
 
+## Species distribution overlap
+
+Based on our best model, we will apply the local index of collocation metric of predator-prey overlap. This measures the co-occurrence by estimating the correlation of predator and prey densities, and uses the following equation:
+$$
+\frac{\sum\limits_{i=1}^n (p\_pred_i*p\_prey_i) }{\sqrt{\sum\limits_{i=1}^n p\_pred_i^2 * \sum\limits_{i=1}^n p\_prey_i^2}}
+
+$$
+
+This can also be used to measure competition.
 
 
 
