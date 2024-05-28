@@ -28,11 +28,17 @@ library(TMB)
 library(rnaturalearth)
 library(sdmTMBextra)
 library(fmesher)
+library(lubridate)
+library(geosphere)
 
 #### Species data ####
 jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.2.24_FINAL.xlsx")))
 
 species_column_names <- colnames(jsoes)[32:ncol(jsoes)]
+
+# change nmi to km to keep units consistent
+jsoes %>% 
+  mutate(km_from_shore = nmi_from_shore * 1.852) -> jsoes
 
 jsoes %>% 
   pivot_longer(., cols = all_of(species_column_names), values_to = "n_per_km", names_to = "species") %>% 
@@ -43,6 +49,19 @@ jsoes %>%
 usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp")
 # load BC
 BC_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp")
+
+# crop them to our desired area
+US_west_coast <- sf::st_crop(usa_spdf,
+    c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
+
+BC_coast <- sf::st_crop(BC_spdf,
+    c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
+
+
+# convert both shapefiles to a different projection (UTM zone 10) so that they can be plotted with the sdmTMB output
+US_west_coast_proj <- sf::st_transform(US_west_coast, crs = 32610)
+BC_coast_proj <- sf::st_transform(BC_coast, crs = 32610)
+
 ```
 
 
@@ -80,11 +99,20 @@ summary(csyis$n_per_km)
 # Create mesh for SPDE
 # Let's make a mesh for the survey area
 # Make a big bounding box, from 44 to 48.5 lat, -126 to -123 long, then take difference with land
-grid = st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
-strait = st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
+# grid = st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
+# strait = st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
+# st_difference(grid, strait) -> survey_grid # remove strait of Juan de Fuca
+# st_difference(survey_grid, usa_spdf) -> survey_grid # remove land
+# st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
+
+grid <- st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
+grid <- sf::st_transform(grid, crs = 32610)
+strait <- st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
+strait <- sf::st_transform(strait, crs = 32610)
 st_difference(grid, strait) -> survey_grid # remove strait of Juan de Fuca
-st_difference(survey_grid, usa_spdf) -> survey_grid # remove land
+st_difference(survey_grid, US_west_coast_proj) -> survey_grid # remove land
 st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
+
 
 mesh = fm_mesh_2d( st_coordinates(st_centroid(survey_grid_df)), 
                    plot.delay = NULL, 
@@ -101,10 +129,10 @@ spde <- fm_fem( inla_mesh,
                 order = 2 )
 
 # create projection matrix from vertices to samples
-A_is = fm_evaluator(mesh, loc = as.matrix(data.frame(X = csyis$X, Y = csyis$Y)))$proj$A
+A_is = fm_evaluator(inla_mesh, loc = as.matrix(data.frame(X = csyis$X, Y = csyis$Y)))$proj$A
 
 # create projection matrix from vertices to grid
-A_gs = fm_evaluator( mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
+A_gs = fm_evaluator( inla_mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
 
 # Make the sdmTMB mesh
 csyis_mesh <- make_mesh(csyis, xy_cols = c("X", "Y"), cutoff = 10)
@@ -143,7 +171,7 @@ Where:
 - $\Sigma$ is the spatial variance. Because we are using the SPDE method, $\Sigma$ is $Q_{spde}^{-1}$.
 
 
-```{r fit-model1-TMB}
+```{r fit-model1-TMB, eval = FALSE}
 compile(here::here("analysis", "jsoes_null_sdm_1.cpp"))
 dyn.load( dynlib(here::here("analysis", "jsoes_null_sdm_1")))
 
@@ -173,7 +201,7 @@ jsoes_null_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
 ```
 
 
-```{r plot-model-1-TMB}
+```{r plot-model-1-TMB, eval = FALSE}
 # Load Jim's sample_var() function
 source("/Users/markusmin/Documents/UW_courses/Spring_2024/FISH556/Spatio-temporal-models-for-ecologists-1.0.0/Shared_functions/sample_var.R")
 source("/Users/markusmin/Documents/UW_courses/Spring_2024/FISH556/Spatio-temporal-models-for-ecologists-1.0.0/Shared_functions/rmvnorm_prec.R")
@@ -237,11 +265,11 @@ ggplot(grid_density_sdmTMB_1998) +
 ggplot(grid_density_sdmTMB_1999) +
   geom_sf(aes(fill = est))
 
-ggplot(grid_density) +
-  geom_sf(aes(fill = ln_d_gt.1))
-
-ggplot(grid_density) +
-  geom_sf(aes(fill = ln_d_gt.2))
+# ggplot(grid_density) +
+#   geom_sf(aes(fill = ln_d_gt.1))
+# 
+# ggplot(grid_density) +
+#   geom_sf(aes(fill = ln_d_gt.2))
 # Patterns look very similar - but not identical
 
 # Parameter estimates:
@@ -299,7 +327,7 @@ Where:
 However, because we are using the SPDE method to model a precision matrix for our grid that will then be shared for both the spatial ($\omega_s$) and spatio-temoral ($\epsilon_{s,t}) terms, $\sigma_\omega^2\textbf{R}_\omega$ =  $\sigma_\epsilon^2\textbf{R}_\epsilon$ = $\Sigma$ = $Q_{spde}^{-1}$.
 
 
-```{r fit-model2-TMB}
+```{r fit-model2-TMB, eval = FALSE}
 compile(here::here("analysis", "jsoes_st_sdm_3.cpp"))
 dyn.load( dynlib(here::here("analysis", "jsoes_st_sdm_3")))
 
@@ -357,7 +385,7 @@ Where:
 However, because we are using the SPDE method to model a precision matrix for our grid that will then be shared for both the spatial ($\omega_s$) and spatio-temoral ($\epsilon_{s,t}) terms, $\sigma_\omega^2\textbf{R}_\omega$ =  $\sigma_\epsilon^2\textbf{R}_\epsilon$ = $\Sigma$ = $Q_{spde}^{-1}$.
 
 
-```{r fit-model3-TMB}
+```{r fit-model3-TMB, eval = FALSE}
 compile(here::here("analysis", "jsoes_stac_sdm.cpp"))
 dyn.load( dynlib(here::here("analysis", "jsoes_stac_sdm")))
 
@@ -392,7 +420,7 @@ jsoes_stac_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
 
 
 The fourth model now models the temporal main effect, $\beta_t$, as a temporally autocorrelated process.
-```{r fit-model4-TMB}
+```{r fit-model4-TMB, eval = FALSE}
 compile(here::here("analysis", "jsoes_tempac_sdm.cpp"))
 dyn.load( dynlib(here::here("analysis", "jsoes_tempac_sdm")))
 
@@ -483,10 +511,11 @@ AIC(jsoes_stac_sdmTMB)
 
 ```{r predict-to-grid}
 # create base map
-survey_area_basemap <- ggplot(usa_spdf) +
+survey_area_basemap <- ggplot(US_west_coast_proj) +
   geom_sf() +
-  geom_sf(data = BC_spdf) +
-  coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  geom_sf(data = BC_coast_proj) +
+  # coord_sf(ylim = c(4922.052, 5342.052), xlim = c(334.8638, 404.8638)) +
+  # coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
   ylab("Latitude")+
   xlab("Longitude")+
   theme(plot.background = element_rect(fill = "white"),
@@ -504,12 +533,17 @@ survey_area_basemap <- ggplot(usa_spdf) +
 st_as_sf(as.data.frame(mesh_sdmTMB$loc_xy), coords = c("X", "Y"),
          crs = 32610) -> mesh_sf
 
+# to get a convex hull, need to group all points together into one polygon
+mesh_sf %>% 
+  summarise(geometry = st_combine(geometry)) -> mesh_sf
+
+
 new_poly <- st_convex_hull(mesh_sf)
 plot(new_poly)
 st_crs(new_poly)
 
 # remove land from polygon
-coast_proj <- sf::st_transform(usa_spdf$geometry, crs = 32610)
+coast_proj <- sf::st_transform(US_west_coast_proj$geometry, crs = 32610)
 
 
 poly <- st_difference(new_poly, coast_proj)
@@ -520,10 +554,10 @@ st_bbox(poly)
 
 # create a grid within the polygon using the raster package
 # resolution <- 2000 # poly is in meters; 2000 is pretty fine: 2000m x 2000m = 4 km2
-resolution <- 5 # poly is in km I believe; 5 x 5 = 25 km2
+resolution <- 10 # poly is in km I believe; 5 x 5 = 25 km2
 r <- raster::raster(as(poly, "Spatial"), resolution = resolution)
 rr <- raster::rasterize(as(poly, "Spatial"), r, getCover = TRUE)
-plot(rr)
+# plot(rr)
 
 # convert to data frame and calculate grid cell area for each row
 grid <- as.data.frame(raster::rasterToPoints(rr))
@@ -555,17 +589,22 @@ predict_st = predict(jsoes_st_sdmTMB, newdata = grid_yrs, return_tmb_object = FA
 ```
 
 ```{r create-map}
-survey_area_basemap + 
-  # geom_tile(data = predict_st, aes(x = X*1000, y = Y*1000, fill = exp(est))) +
-  geom_tile(data = predict_st, aes(x = X, y = Y, fill = exp(est))) +
-  scale_fill_viridis_c( trans = "sqrt",
-                        # trim extreme high values to make spatial variation more visible
-                        na.value = "yellow", limits = c(0, quantile(exp(predict_st$est), 0.995))) +
+survey_area_basemap +
+  geom_tile(data = subset(predict_st, year == 2000), aes(x = X*1000, y = Y*1000, fill = exp(est)))
+
+test_plot <- survey_area_basemap +
+  geom_tile(data = predict_st, aes(x = X*1000, y = Y*1000, fill = exp(est))) +
+  # scale_fill_viridis_c( trans = "sqrt",
+  #                       # trim extreme high values to make spatial variation more visible
+  #                       na.value = "yellow", limits = c(0, quantile(exp(predict_st$est), 0.995))) +
+  scale_fill_viridis_c() +
   facet_wrap(~year) +
   theme_light() +
   labs(fill = "Predicted\nabundance") +
   labs(x = "Longitude", y = "Latitude")+
   ggtitle("Spatiotemporal model, no covariates")
+
+ggsave(here::here("figures", "test_plot.png"), plot = test_plot, height = 20, width = 15)
 ```
 
 
@@ -604,8 +643,23 @@ cor(jsoes$nmi_from_shore, jsoes$stn_depth_m)
 ```
 
 
+We also need to know the date range to use for SST for interpolation.
+```{r}
+jsoes %>% 
+  mutate(julian_day = yday(sample_date)) -> jsoes
 
-Based on our model selection process for the selection of spatial and temporal effects, we have now added covariates into our best model.
+hist(jsoes$julian_day)
+# for simplicity (and to keep our dataset a reasonable size), let's take the mean day
+round(mean(jsoes$julian_day))
+# corresponds to june 24 (on non-leap years)
+```
+
+
+
+
+
+
+Based on our model selection process for the selection of spatial and temporal effects, we have now added covariates into our best model (spatial effect, spatiotemporal random fields that are IID)s.
 
 
 $$
@@ -619,17 +673,115 @@ Where:
 - $t$ is the year
 - $d$ is the density of a species caught in a tow
 - $\beta_t$ is the median density in year t
-- $\textbf{x}_{s,t}$ is the vector of density covariates at station $s$ in year $t$
-- $\gamma$ is the vector of parameters describing the effect of density covariates
 - $\omega_s$ is the density for location $s$ relative to the median location that is typical across years
-- $\epsilon_{s,t}$ is a spatio-temporal variable
-- $\sigma_\omega^2$ is the spatial variance
-- $\sigma_\epsilon^2$ is the spatio-temporal variance
+- $\epsilon_{s,t}$ is a spatio-temporal variable that describes the effect of each combination of year and location on density
+- $\textbf{R}_\omega$ = $\textbf{R}_\epsilon$ is the spatial correlation. These are the same because the correlation structure is set up using the SPDE method.
+- $\sigma_\omega$ is the spatial variance. This is controlled by the parameter $\tau_\omega$ in the SPDE calculation.
+- $\sigma_\epsilon$ is the spatio-temporal variance. This is controlled by the parameter $\tau_\epsilon$ in the SPDE calculation.
+
+However, because we are using the SPDE method to model a precision matrix for our grid that will then be shared for both the spatial ($\omega_s$) and spatio-temoral ($\epsilon_{s,t}) terms, $\sigma_\omega^2\textbf{R}_\omega$ =  $\sigma_\epsilon^2\textbf{R}_\epsilon$ = $\Sigma$ = $Q_{spde}^{-1}$.
 
 
 $\textbf{x}_{s,t}$ includes the following parameters whose effects are described in $\gamma$:
-- SST
-- more...
+- SST (degrees celsisus)
+- Distance from shore in km
+
+To get predicted estimates for the survey grid, we need the values of covariates at all poinst within our projection grid.
+
+- Distance from shore can be calculate using sf, to get the distance from the polygon
+- SST: Need multiple queries, to account for leap years
+  - Query from ERDDAP: https://coastwatch.noaa.gov/erddap/griddap/noaacrwsstDaily.html
+  - time (UTC): 
+    - start 1998-06-24T12:00:00Z / 2000-06-24T12:00:00Z / 2004-06-24T12:00:00Z / 2008-06-24T12:00:00Z / 2012-06-24T12:00:00Z / 2016-06-24T12:00:00Z / 2020-06-24T12:00:00Z
+    - stride 365
+    - stop 1999-06-24T12:00:00Z / 2003-06-24T12:00:00Z / 2007-06-24T12:00:00Z / 2011-06-24T12:00:00Z / 2015-06-24T12:00:00Z / 2019-06-24T12:00:00Z / 2023-06-24T12:00:00Z
+  - latitude (degrees north):
+    - start 44
+    - stride 1
+    - stop 48.5
+  - longitude (degrees east):
+    - start -126
+    - stride 1
+    - stop -123
+  - Grid variables: analysed_sst (analysed sea surface temperature, degree_C) 
+  - download as CSV
+  
+  
+  
+```{r calculate_dist_shore}
+grid_yrs_sf <- st_as_sf(grid_yrs, crs = 32610, coords = c("X", "Y"))
+
+st_distance(grid_yrs_sf, US_west_coast_proj) -> grid_dist_shore
+# this is currently way off because of units I think - I think US_west_coast_proj is in m and grid_yrs_sf is in km
+
+```
+
+
+```{r reformat-SST}
+SST1 <- read.csv(here::here("Data", "noaacrwsstDaily_1b80_3259_2114.csv"), skip = 1)
+SST2 <- read.csv(here::here("Data", "noaacrwsstDaily_3b63_608b_d6fb.csv"), skip = 1)
+SST3 <- read.csv(here::here("Data", "noaacrwsstDaily_3c79_0cf9_15fe.csv"), skip = 1)
+SST4 <- read.csv(here::here("Data", "noaacrwsstDaily_9e43_d7a8_58eb.csv"), skip = 1)
+SST5 <- read.csv(here::here("Data", "noaacrwsstDaily_97b1_1c15_1964.csv"), skip = 1)
+SST6 <- read.csv(here::here("Data", "noaacrwsstDaily_0802_800d_255f.csv"), skip = 1)
+SST7 <- read.csv(here::here("Data", "noaacrwsstDaily_7783_2164_b474.csv"), skip = 1)
+
+SST1 %>% 
+  bind_rows(., SST2, SST3, SST3, SST5, SST6, SST7) -> SST
+
+SST %>% 
+  dplyr::rename(time = UTC, latitude = degrees_north, longitude = degrees_east, SST = degree_C) -> SST
+SST %>% 
+  mutate(time = ymd_hms(time)) %>% 
+  mutate(day_of_month = mday(time)) %>% 
+  mutate(year = year(time)) %>% 
+  mutate(julian = yday(time))-> SST
+
+table(SST$day_of_month)
+
+
+# Looks good to me! Now just need to resolve CRS conflicts
+ggplot(data = subset(SST, year == 2010), aes(x = longitude, y = latitude, color = SST)) +
+  geom_point()
+```
+
+
+
+```{r fit-cov-model-TMB, eval = FALSE}
+compile(here::here("analysis", "jsoes_st_cov_sdm.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_st_cov_sdm")))
+
+Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
+             "temp_i" = csyis$x3m_temp_c, "dist_i" = csyis$km_from_shore,
+             "n_t" = length(unique(csyis$year)),
+             "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
+Params = list( "beta_t"=rep(0, length(unique(csyis$year))), 
+               "ln_tau_omega"=0, "ln_tau_epsilon"=0,
+               "ln_kappa"=0, "logit_rhoE" = 0,  "ln_phi" = 0, 
+               "finv_power" = 0, "omega_s"=rnorm(nrow(spde$c0)),
+               "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
+
+stac_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st"),
+                 DLL = "jsoes_st_cov_sdm")
+
+# Optimize
+stac_Opt = nlminb( start=stac_Obj$par, obj=stac_Obj$fn, grad=stac_Obj$gr )
+# Opt$SD = sdreport( Obj, bias.correct=TRUE )
+stac_report = stac_Obj$report()
+```
+
+```{r fit-cov-model-3-sdmTMB}
+# Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
+jsoes_stac_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "ar1",
+                         family = tweedie(link = "log"))
+```
+
+
 
 
 ## Area-weighted indices of abundance
