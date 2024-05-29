@@ -48,21 +48,184 @@ jsoes %>%
 #### Spatial data ####
 usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp")
 # load BC
-BC_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp")
+CAN_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp")
+BC_spdf <- filter(CAN_spdf, PRENAME == "British Columbia")
+BC_proj <- st_transform(BC_spdf, crs = 4326)
+
 
 # crop them to our desired area
 US_west_coast <- sf::st_crop(usa_spdf,
     c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
 
-BC_coast <- sf::st_crop(BC_spdf,
+BC_coast <- sf::st_crop(BC_proj,
     c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
 
 
-# convert both shapefiles to a different projection (UTM zone 10) so that they can be plotted with the sdmTMB output
-US_west_coast_proj <- sf::st_transform(US_west_coast, crs = 32610)
-BC_coast_proj <- sf::st_transform(BC_coast, crs = 32610)
 
+# convert both shapefiles to a different projection (UTM zone 10) so that they can be plotted with the sdmTMB output
+UTM_zone_10_crs <- 32610
+
+US_west_coast_proj <- sf::st_transform(US_west_coast, crs = UTM_zone_10_crs)
+BC_coast_proj <- sf::st_transform(BC_coast, crs = UTM_zone_10_crs)
+
+# make this projection into kilometers
+US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+BC_coast_proj_km <- st_as_sf(BC_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
 ```
+
+```{r create_basemap}
+# create base map
+survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
+  geom_sf() +
+  geom_sf(data = BC_coast_proj_km) +
+  # coord_sf(ylim = c(4922.052, 5342.052), xlim = c(334.8638, 404.8638)) +
+  # coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+
+survey_area_basemap_km
+
+survey_area_basemap <- ggplot(US_west_coast) +
+  geom_sf() +
+  geom_sf(data = BC_coast) +
+  coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+```
+
+
+
+```{r load-reformat-SST}
+SST1 <- read.csv(here::here("Data", "noaacrwsstDaily_9bdb_17ce_0aa0.csv"), skip = 1)
+SST2 <- read.csv(here::here("Data", "noaacrwsstDaily_36e3_7cb3_1109.csv"), skip = 1)
+SST3 <- read.csv(here::here("Data", "noaacrwsstDaily_519c_f955_0fea.csv"), skip = 1)
+SST4 <- read.csv(here::here("Data", "noaacrwsstDaily_727c_5c10_e6a0.csv"), skip = 1)
+SST5 <- read.csv(here::here("Data", "noaacrwsstDaily_1176_fc5f_53d2.csv"), skip = 1)
+SST6 <- read.csv(here::here("Data", "noaacrwsstDaily_ae0c_9197_083f.csv"), skip = 1)
+SST7 <- read.csv(here::here("Data", "noaacrwsstDaily_fe4f_9c9c_442e.csv"), skip = 1)
+
+SST1 %>% 
+  bind_rows(., SST2, SST3, SST4, SST5, SST6, SST7) -> SST
+
+SST %>% 
+  dplyr::rename(time = UTC, latitude = degrees_north, longitude = degrees_east, SST = degree_C) -> SST
+SST %>% 
+  mutate(time = ymd_hms(time)) %>% 
+  mutate(day_of_month = mday(time)) %>% 
+  mutate(year = year(time)) %>% 
+  mutate(julian = yday(time))-> SST
+
+table(SST$day_of_month)
+
+
+# Looks good to me! Now just need to resolve CRS conflicts
+ggplot(data = subset(SST, year == 2010), aes(x = longitude, y = latitude, color = SST)) +
+  geom_point()
+
+# Convert SST to UTM zone 10
+# st_as_sf(SST, coords = c("latitude", "longitude"), crs = "4326") -> SST_sf
+st_as_sf(SST, coords = c("longitude", "latitude"), crs = 4326) -> SST_sf
+US_west_coast
+
+sf::st_transform(SST_sf, crs = UTM_zone_10_crs) -> SST_sf_proj
+
+SST_plots <- survey_area_basemap +
+  geom_sf(data = SST_sf_proj, aes(color = SST)) +
+  facet_wrap(~year)
+
+ggsave(here::here("figures", "SST_plots.png"), plot = SST_plots, height = 20, width = 15)
+```
+
+
+```{r create-survey-prediction-grid}
+# Create a survey grid from scratch
+# Make sure that it aligns with our SST
+
+# only keep one year, since that's all we need to make a grid
+SST_sf_proj %>% 
+  filter(year == 2000) -> SST_sf_proj_2000
+
+st_as_sf(SST_sf_proj_2000$geometry/1000, crs = UTM_zone_10_crs) -> SST_sf_proj_km_2000
+
+SST_sf_proj_km_2000$dist_shore <- as.numeric(st_distance(SST_sf_proj_km_2000, US_west_coast_proj_km))
+
+
+# 100 km offshore is the max, then 20 km north/south of limits of survey region
+# The vast majority of stations are within 60 km of shore, but there are just a couple that are further out in the Columbia River Plume up to 83 km from shore
+hist(jsoes_long$km_from_shore)
+
+SST_sf_proj_km_2000 %>% 
+  filter(dist_shore <= 100) -> grid_within_100km_shore
+
+
+ggplot(SST_sf_proj_km_2000) +
+  geom_sf()
+ggplot(grid_within_100km_shore) +
+  geom_sf()
+
+
+min(csyis$Y) -> min_Y
+max(csyis$Y) -> max_Y
+
+
+survey_domain <- st_crop(grid_within_100km_shore, xmin = 0, xmax = 100000, ymin=min_Y-20, ymax=max_Y+20)
+
+st_difference(survey_domain, US_west_coast_proj_km) -> survey_domain
+
+# manually remove sections for strait, hood canal (and other inland waters), Grays Harbor, Willapa Bay, Columbia River estuary
+strait <- st_as_sfc(st_bbox(c(xmin=-124.65, xmax=-122, ymin=47.9375, ymax=49), crs = "WGS84"))
+strait_proj <- sf::st_transform(strait, crs = UTM_zone_10_crs)
+strait_proj_km <- st_as_sf(strait_proj/1000, crs = UTM_zone_10_crs)
+
+inland_waters <- st_as_sfc(st_bbox(c(xmin=-123.5, xmax=-121, ymin=44, ymax=48.5), crs = "WGS84"))
+inland_waters_proj <- sf::st_transform(inland_waters, crs = UTM_zone_10_crs)
+inland_waters_proj_km <- st_as_sf(inland_waters_proj/1000, crs = UTM_zone_10_crs)
+
+grays_harbor <- st_as_sfc(st_bbox(c(xmin=-124.15, xmax=-123.6, ymin=46.83, ymax=47.09), crs = "WGS84"))
+grays_harbor_proj <- sf::st_transform(grays_harbor, crs = UTM_zone_10_crs)
+grays_harbor_proj_km <- st_as_sf(grays_harbor_proj/1000, crs = UTM_zone_10_crs)
+
+willapa_bay <- st_as_sfc(st_bbox(c(xmin=-124.06, xmax=-123.5, ymin=46.34, ymax=46.8), crs = "WGS84"))
+willapa_bay_proj <- sf::st_transform(willapa_bay, crs = UTM_zone_10_crs)
+willapa_bay_proj_km <- st_as_sf(willapa_bay_proj/1000, crs = UTM_zone_10_crs)
+
+estuary <- st_as_sfc(st_bbox(c(xmin=-124.02, xmax=-123.5, ymin=46.12, ymax=46.35), crs = "WGS84"))
+estuary_proj <- sf::st_transform(estuary, crs = UTM_zone_10_crs)
+estuary_proj_km <- st_as_sf(estuary_proj/1000, crs = UTM_zone_10_crs)
+
+survey_domain %>% 
+  st_difference(., strait_proj_km) %>% 
+  st_difference(., inland_waters_proj_km) %>% 
+  st_difference(., grays_harbor_proj_km) %>% 
+  st_difference(., willapa_bay_proj_km) %>% 
+  st_difference(., estuary_proj_km) -> survey_domain
+
+ggplot(survey_domain) +
+  geom_sf()
+
+st_convex_hull(st_union(survey_domain)) -> survey_domain_polygon
+
+survey_area_basemap_km +
+  geom_sf(data = survey_domain_polygon)
+```
+
+
 
 
 ## Data preparation for TMB
@@ -96,6 +259,8 @@ csyis %>%
 hist(csyis$n_per_km)
 summary(csyis$n_per_km)
 
+
+
 # Create mesh for SPDE
 # Let's make a mesh for the survey area
 # Make a big bounding box, from 44 to 48.5 lat, -126 to -123 long, then take difference with land
@@ -106,9 +271,9 @@ summary(csyis$n_per_km)
 # st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
 
 grid <- st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
-grid <- sf::st_transform(grid, crs = 32610)
+grid <- sf::st_transform(grid, crs = UTM_zone_10_crs)
 strait <- st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
-strait <- sf::st_transform(strait, crs = 32610)
+strait <- sf::st_transform(strait, crs = UTM_zone_10_crs)
 st_difference(grid, strait) -> survey_grid # remove strait of Juan de Fuca
 st_difference(survey_grid, US_west_coast_proj) -> survey_grid # remove land
 st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
@@ -510,28 +675,12 @@ AIC(jsoes_stac_sdmTMB)
 ## Predictions + projections
 
 ```{r predict-to-grid}
-# create base map
-survey_area_basemap <- ggplot(US_west_coast_proj) +
-  geom_sf() +
-  geom_sf(data = BC_coast_proj) +
-  # coord_sf(ylim = c(4922.052, 5342.052), xlim = c(334.8638, 404.8638)) +
-  # coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
-  ylab("Latitude")+
-  xlab("Longitude")+
-  theme(plot.background = element_rect(fill = "white"),
-        panel.background = element_rect(fill="white", color = "black"),
-        panel.border = element_rect(colour = "black", fill=NA, size=1),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.position = c(0.14, 0.2),
-        legend.title = element_text(size = 14),
-        legend.text = element_text(size = 12))
 
 # create new grid
 # create a polygon based off the mesh boundaries
 # CRS 32610 is UTM zone 10N, which is the UTM zone that corresponds to the survey area
 st_as_sf(as.data.frame(mesh_sdmTMB$loc_xy), coords = c("X", "Y"),
-         crs = 32610) -> mesh_sf
+         crs = UTM_zone_10_crs) -> mesh_sf
 
 # to get a convex hull, need to group all points together into one polygon
 mesh_sf %>% 
@@ -543,7 +692,7 @@ plot(new_poly)
 st_crs(new_poly)
 
 # remove land from polygon
-coast_proj <- sf::st_transform(US_west_coast_proj$geometry, crs = 32610)
+coast_proj <- sf::st_transform(US_west_coast_proj$geometry, crs = UTM_zone_10_crs)
 
 
 poly <- st_difference(new_poly, coast_proj)
@@ -669,10 +818,12 @@ log(d_{s,t}) \sim \beta_t + \textbf{x}_{s,t}\gamma + \omega_s + \epsilon_{s,t} \
 $$
 
 Where:
-- $s$ is the station
+- $s$ is the location
 - $t$ is the year
 - $d$ is the density of a species caught in a tow
 - $\beta_t$ is the median density in year t
+- $\textbf{x}_{s,t}$ is a vector containing the values of the covariates (SST and distance from shore) at location $s$ in year $t$
+- $\gamma$ is a vector containing the parameters that describe the fixed effects of the covariates
 - $\omega_s$ is the density for location $s$ relative to the median location that is typical across years
 - $\epsilon_{s,t}$ is a spatio-temporal variable that describes the effect of each combination of year and location on density
 - $\textbf{R}_\omega$ = $\textbf{R}_\epsilon$ is the spatial correlation. These are the same because the correlation structure is set up using the SPDE method.
@@ -700,7 +851,7 @@ To get predicted estimates for the survey grid, we need the values of covariates
     - stride 1
     - stop 48.5
   - longitude (degrees east):
-    - start -126
+    - start -127
     - stride 1
     - stop -123
   - Grid variables: analysed_sst (analysed sea surface temperature, degree_C) 
@@ -709,53 +860,49 @@ To get predicted estimates for the survey grid, we need the values of covariates
   
   
 ```{r calculate_dist_shore}
-grid_yrs_sf <- st_as_sf(grid_yrs, crs = 32610, coords = c("X", "Y"))
+grid_yrs_sf <- st_as_sf(grid_yrs, crs = UTM_zone_10_crs, coords = c("X", "Y"))
 
-st_distance(grid_yrs_sf, US_west_coast_proj) -> grid_dist_shore
-# this is currently way off because of units I think - I think US_west_coast_proj is in m and grid_yrs_sf is in km
+# make this projection into kilometers
+US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+
+st_distance(grid_yrs_sf, US_west_coast_proj_km) -> grid_dist_shore
+
+# confirm that these are reasonable, based on points from survey
+dplyr::select(csyis, station, km_from_shore, X, Y) -> csyis_spatial
+st_as_sf(csyis_spatial, coords = c("X", "Y"), crs = UTM_zone_10_crs) -> csyis_sf
+
+st_distance(csyis_sf, US_west_coast_proj_km) -> csyis_dist_shore
+
+csyis$sf_dist_shore <- csyis_dist_shore
+# they're similar - but not identical
+hist(as.numeric(csyis_test$sf_dist_shore)-csyis_test$km_from_shore)
+# and they're pretty biased - the distances calculated using sf tend to be smaller
+# Let's just use the sf distance from shore calculated for both prediction grid and
+# the samples themselves
+
+
 
 ```
 
 
-```{r reformat-SST}
-SST1 <- read.csv(here::here("Data", "noaacrwsstDaily_1b80_3259_2114.csv"), skip = 1)
-SST2 <- read.csv(here::here("Data", "noaacrwsstDaily_3b63_608b_d6fb.csv"), skip = 1)
-SST3 <- read.csv(here::here("Data", "noaacrwsstDaily_3c79_0cf9_15fe.csv"), skip = 1)
-SST4 <- read.csv(here::here("Data", "noaacrwsstDaily_9e43_d7a8_58eb.csv"), skip = 1)
-SST5 <- read.csv(here::here("Data", "noaacrwsstDaily_97b1_1c15_1964.csv"), skip = 1)
-SST6 <- read.csv(here::here("Data", "noaacrwsstDaily_0802_800d_255f.csv"), skip = 1)
-SST7 <- read.csv(here::here("Data", "noaacrwsstDaily_7783_2164_b474.csv"), skip = 1)
-
-SST1 %>% 
-  bind_rows(., SST2, SST3, SST3, SST5, SST6, SST7) -> SST
-
-SST %>% 
-  dplyr::rename(time = UTC, latitude = degrees_north, longitude = degrees_east, SST = degree_C) -> SST
-SST %>% 
-  mutate(time = ymd_hms(time)) %>% 
-  mutate(day_of_month = mday(time)) %>% 
-  mutate(year = year(time)) %>% 
-  mutate(julian = yday(time))-> SST
-
-table(SST$day_of_month)
-
-
-# Looks good to me! Now just need to resolve CRS conflicts
-ggplot(data = subset(SST, year == 2010), aes(x = longitude, y = latitude, color = SST)) +
-  geom_point()
-```
 
 
 
 ```{r fit-cov-model-TMB, eval = FALSE}
+A_gs
+
+
+
 compile(here::here("analysis", "jsoes_st_cov_sdm.cpp"))
 dyn.load( dynlib(here::here("analysis", "jsoes_st_cov_sdm")))
 
 Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
-             "temp_i" = csyis$x3m_temp_c, "dist_i" = csyis$km_from_shore,
+             "temp_i" = csyis$x3m_temp_c, "dist_i" = csyis$sf_dist_shore,
+             "dist_g" = distance_projection_vector, "temp_gt" = temperature_projection_matrix, 
              "n_t" = length(unique(csyis$year)),
              "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
 Params = list( "beta_t"=rep(0, length(unique(csyis$year))), 
+               "beta_temp" = 0, "beta_dist" = 0,
                "ln_tau_omega"=0, "ln_tau_epsilon"=0,
                "ln_kappa"=0, "logit_rhoE" = 0,  "ln_phi" = 0, 
                "finv_power" = 0, "omega_s"=rnorm(nrow(spde$c0)),

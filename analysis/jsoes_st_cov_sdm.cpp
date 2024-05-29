@@ -11,6 +11,8 @@ Type objective_function<Type>::operator() ()
   DATA_VECTOR(D_i);  // density for measurement i
   DATA_IVECTOR(t_i); // index for the year of measurement i
   DATA_INTEGER(n_t); // number of years in the dataset
+  DATA_VECTOR(temp_i);  // temperature for measurement i
+  DATA_VECTOR(dist_i);  // distance from shore for measurement i
   
   // SPDE objects
   DATA_SPARSE_MATRIX(M0);
@@ -21,8 +23,14 @@ Type objective_function<Type>::operator() ()
   DATA_SPARSE_MATRIX(A_is);
   DATA_SPARSE_MATRIX(A_gs);
   
+  DATA_MATRIX(temp_gt); // temperature at each location in each year
+  DATA_MATRIX(dist_g); // distance from shore at each location
+  
+  
   // Parameters
   PARAMETER_VECTOR( beta_t );
+  PARAMETER( beta_temp );
+  PARAMETER( beta_dist );
   PARAMETER( ln_tau_omega );
   PARAMETER( ln_tau_epsilon );
   PARAMETER( ln_kappa );
@@ -69,7 +77,7 @@ Type objective_function<Type>::operator() ()
   
   
   for( int i=0; i<D_i.size(); i++){
-    dhat_i(i) = exp( beta_t(t_i(i)) + omega_i(i) + epsilon_it(i,t_i(i)) );
+    dhat_i(i) = exp( beta_t(t_i(i)) + beta_temp*temp_i(i) + beta_dist*dist_i(i) + omega_i(i) + epsilon_it(i,t_i(i)) );
     jnll -= dtweedie( D_i(i), dhat_i(i), exp(ln_phi), Type(1.0)+invlogit(finv_power), true );
   }
   
@@ -77,7 +85,7 @@ Type objective_function<Type>::operator() ()
   array<Type> ln_d_gt( n_g, n_t );
   for( int t=0; t<n_t; t++){
     for( int g=0; g<n_g; g++){
-      ln_d_gt(g,t) = beta_t(t) + omega_g(g) + epsilon_gt(g,t);
+      ln_d_gt(g,t) = beta_t(t) + beta_temp*temp_gt(g,t) + beta_dist*dist_g(g) + omega_g(g) + epsilon_gt(g,t);
     }
   }
   
@@ -85,6 +93,8 @@ Type objective_function<Type>::operator() ()
   // Reporting
   REPORT( dhat_i );
   REPORT( beta_t );
+  REPORT( beta_temp );
+  REPORT( beta_dist );
   REPORT( ln_tau_omega );
   REPORT( ln_tau_epsilon );
   REPORT( ln_kappa );
