@@ -56,6 +56,9 @@ survey_area_basemap +
   geom_point(data = jsoes_stations, aes(x = mid_long, y = mid_lat)) +
   geom_text(data = jsoes_stations, aes(x = mid_long, y = mid_lat+0.1, label = station), size = 2) -> jsoes_map_stations
 
+# save station map
+ggsave(here::here("figures", "jsoes_map_stations.png"), plot = jsoes_map_stations, height = 20, width = 15)
+
 # jsoes_map_stations
 
 # what if we plot all samples?
@@ -106,6 +109,10 @@ plot_distribution(species_select = "water_jelly", year_select = 2008, data = jso
 plot_distribution(species_select = "water_jelly", data = jsoes_long)
 
 plot_distribution(species_select = "chinook_salmon_yearling_interior_sp", data = jsoes_long)
+
+plot_distribution(species_select = "chinook_salmon_yearling_interior_sp", year_select = 1998, data = jsoes_long)
+
+plot_distribution(species_select = "chinook_salmon_yearling_interior_sp", year_select = 2008, data = jsoes_long)
 
 ```
 
