@@ -24,7 +24,7 @@ Type objective_function<Type>::operator() ()
   DATA_SPARSE_MATRIX(A_gs);
   
   DATA_MATRIX(temp_gt); // temperature at each location in each year
-  DATA_MATRIX(dist_g); // distance from shore at each location
+  DATA_VECTOR(dist_g); // distance from shore at each location
   
   
   // Parameters
@@ -77,7 +77,7 @@ Type objective_function<Type>::operator() ()
   
   
   for( int i=0; i<D_i.size(); i++){
-    dhat_i(i) = exp( beta_t(t_i(i)) + beta_temp*temp_i(i) + beta_dist*dist_i(i) + omega_i(i) + epsilon_it(i,t_i(i)) );
+    dhat_i(i) = exp( beta_t(t_i(i)) + beta_temp*temp_i(i) + omega_i(i) + epsilon_it(i,t_i(i)) );
     jnll -= dtweedie( D_i(i), dhat_i(i), exp(ln_phi), Type(1.0)+invlogit(finv_power), true );
   }
   

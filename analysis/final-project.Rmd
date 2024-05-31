@@ -30,6 +30,7 @@ library(sdmTMBextra)
 library(fmesher)
 library(lubridate)
 library(geosphere)
+library(geos)
 
 #### Species data ####
 jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.2.24_FINAL.xlsx")))
@@ -110,6 +111,41 @@ survey_area_basemap <- ggplot(US_west_coast) +
 ```
 
 
+## JSOES data preparation for TMB
+```{r prep-data}
+# Subset data for one species
+csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
+
+# for now, let's drop any data that's missing lat/longs
+csyis <- filter(csyis, !(is.na(mid_lat)))
+
+# Drop any samples that don't have temperature data (we could interpolate both of these later)
+csyis <- filter(csyis, !(is.na(x3m_temp_c)))
+
+# Add UTM coordinates to get an equal distance projection and get lat/longs
+utm_crs <- get_crs(csyis, c("mid_long", "mid_lat")) # check that
+
+csyis <- add_utm_columns(
+  csyis,
+  ll_names = c("mid_long", "mid_lat"),
+  ll_crs = 4326,
+  utm_names = c("Lon.km", "Lat.km"),
+  utm_crs = utm_crs,
+  units = c("km")
+)
+
+
+# Change Lon.km and Lat.km columns to X and Y to avoid problems later
+csyis %>% 
+  dplyr::rename(X = Lon.km, Y = Lat.km) -> csyis
+
+
+# quick check
+hist(csyis$n_per_km)
+summary(csyis$n_per_km)
+```
+
+
 
 ```{r load-reformat-SST}
 SST1 <- read.csv(here::here("Data", "noaacrwsstDaily_9bdb_17ce_0aa0.csv"), skip = 1)
@@ -168,10 +204,12 @@ SST_sf_proj_km_2000$dist_shore <- as.numeric(st_distance(SST_sf_proj_km_2000, US
 
 # 100 km offshore is the max, then 20 km north/south of limits of survey region
 # The vast majority of stations are within 60 km of shore, but there are just a couple that are further out in the Columbia River Plume up to 83 km from shore
+# We also want to exclude values that are within 0.5 km of shore, because these
+# don't have measureable SST values (they're basically on shore)
 hist(jsoes_long$km_from_shore)
 
 SST_sf_proj_km_2000 %>% 
-  filter(dist_shore <= 100) -> grid_within_100km_shore
+  filter(dist_shore <= 100 & dist_shore >= 0.5) -> grid_within_100km_shore
 
 
 ggplot(SST_sf_proj_km_2000) +
@@ -193,7 +231,7 @@ strait <- st_as_sfc(st_bbox(c(xmin=-124.65, xmax=-122, ymin=47.9375, ymax=49), c
 strait_proj <- sf::st_transform(strait, crs = UTM_zone_10_crs)
 strait_proj_km <- st_as_sf(strait_proj/1000, crs = UTM_zone_10_crs)
 
-inland_waters <- st_as_sfc(st_bbox(c(xmin=-123.5, xmax=-121, ymin=44, ymax=48.5), crs = "WGS84"))
+inland_waters <- st_as_sfc(st_bbox(c(xmin=-123.5, xmax=-120, ymin=44, ymax=49.5), crs = "WGS84"))
 inland_waters_proj <- sf::st_transform(inland_waters, crs = UTM_zone_10_crs)
 inland_waters_proj_km <- st_as_sf(inland_waters_proj/1000, crs = UTM_zone_10_crs)
 
@@ -216,50 +254,40 @@ survey_domain %>%
   st_difference(., willapa_bay_proj_km) %>% 
   st_difference(., estuary_proj_km) -> survey_domain
 
-ggplot(survey_domain) +
+# Create a concave hull around points
+st_concave_hull(st_union(survey_domain), ratio = 0.1) -> survey_domain_polygon
+
+ggplot(survey_domain_polygon) +
   geom_sf()
 
-st_convex_hull(st_union(survey_domain)) -> survey_domain_polygon
+ggplot(survey_domain) +
+  geom_sf()
 
 survey_area_basemap_km +
   geom_sf(data = survey_domain_polygon)
 ```
 
 
+```{r start creation prediction grid}
+# Take SST grid and intersect with survey domain
+SST_sf_proj %>% 
+  mutate(geometry = geometry/1000) %>% 
+  st_set_crs(UTM_zone_10_crs) %>% 
+  st_intersection(survey_domain_polygon) %>% 
+  dplyr::select(SST, year, geometry)-> SST_survey_domain
+
+# add in distance from shore
+SST_survey_domain %>% 
+  mutate(sf_dist_shore = as.numeric(st_distance(geometry, US_west_coast_proj_km))) %>% 
+  # I'm not sure why we have to filter again here, but make sure to exclude points that are 
+  # > 100 km from shore and < 0.5 km from shore - maybe some rounding errors?
+  filter(sf_dist_shore <= 100 & sf_dist_shore >= 0.5) -> survey_domain_cov
+```
 
 
-## Data preparation for TMB
-
-```{r data_prep}
-# Subset data for one species
-csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
-
-# for now, let's drop any data that's missing lat/longs
-csyis <- filter(csyis, !(is.na(mid_lat)))
-
-# Add UTM coordinates to get an equal distance projection and get lat/longs
-utm_crs <- get_crs(csyis, c("mid_long", "mid_lat")) # check that
-
-csyis <- add_utm_columns(
-  csyis,
-  ll_names = c("mid_long", "mid_lat"),
-  ll_crs = 4326,
-  utm_names = c("Lon.km", "Lat.km"),
-  utm_crs = utm_crs,
-  units = c("km")
-)
 
 
-# Change Lon.km and Lat.km columns to X and Y to avoid problems later
-csyis %>% 
-  dplyr::rename(X = Lon.km, Y = Lat.km) -> csyis
-
-
-# quick check
-hist(csyis$n_per_km)
-summary(csyis$n_per_km)
-
-
+```{r create-mesh}
 
 # Create mesh for SPDE
 # Let's make a mesh for the survey area
@@ -270,13 +298,13 @@ summary(csyis$n_per_km)
 # st_difference(survey_grid, usa_spdf) -> survey_grid # remove land
 # st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
 
-grid <- st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
-grid <- sf::st_transform(grid, crs = UTM_zone_10_crs)
-strait <- st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
-strait <- sf::st_transform(strait, crs = UTM_zone_10_crs)
-st_difference(grid, strait) -> survey_grid # remove strait of Juan de Fuca
-st_difference(survey_grid, US_west_coast_proj) -> survey_grid # remove land
-st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
+# grid <- st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
+# grid <- sf::st_transform(grid, crs = UTM_zone_10_crs)
+# strait <- st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
+# strait <- sf::st_transform(strait, crs = UTM_zone_10_crs)
+# st_difference(grid, strait) -> survey_grid # remove strait of Juan de Fuca
+# st_difference(survey_grid, US_west_coast_proj) -> survey_grid # remove land
+# st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
 
 
 mesh = fm_mesh_2d( st_coordinates(st_centroid(survey_grid_df)), 
@@ -296,8 +324,11 @@ spde <- fm_fem( inla_mesh,
 # create projection matrix from vertices to samples
 A_is = fm_evaluator(inla_mesh, loc = as.matrix(data.frame(X = csyis$X, Y = csyis$Y)))$proj$A
 
-# create projection matrix from vertices to grid
-A_gs = fm_evaluator( inla_mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
+# create projection matrix from vertices to prediction grid
+survey_domain_cov_grid <- filter(survey_domain_cov, year == 1998)
+
+A_gs = fm_evaluator( inla_mesh, loc=st_coordinates(survey_domain_cov_grid))$proj$A
+# A_gs = fm_evaluator( inla_mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
 
 # Make the sdmTMB mesh
 csyis_mesh <- make_mesh(csyis, xy_cols = c("X", "Y"), cutoff = 10)
@@ -523,6 +554,10 @@ jsoes_st_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
                          spatial = "on",
                          spatiotemporal = "iid",
                          family = tweedie(link = "log"))
+
+# check that they're the same
+st_report$beta_t
+jsoes_st_sdmTMB
 ```
 
 
@@ -674,7 +709,7 @@ AIC(jsoes_stac_sdmTMB)
 
 ## Predictions + projections
 
-```{r predict-to-grid}
+```{r predict-to-grid, eval = FALSE}
 
 # create new grid
 # create a polygon based off the mesh boundaries
@@ -859,13 +894,13 @@ To get predicted estimates for the survey grid, we need the values of covariates
   
   
   
-```{r calculate_dist_shore}
-grid_yrs_sf <- st_as_sf(grid_yrs, crs = UTM_zone_10_crs, coords = c("X", "Y"))
+```{r calculate_dist_shore, eval = FALSE}
+# grid_yrs_sf <- st_as_sf(grid_yrs, crs = UTM_zone_10_crs, coords = c("X", "Y"))
 
 # make this projection into kilometers
-US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+# US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
 
-st_distance(grid_yrs_sf, US_west_coast_proj_km) -> grid_dist_shore
+# st_distance(grid_yrs_sf, US_west_coast_proj_km) -> grid_dist_shore
 
 # confirm that these are reasonable, based on points from survey
 dplyr::select(csyis, station, km_from_shore, X, Y) -> csyis_spatial
@@ -873,9 +908,9 @@ st_as_sf(csyis_spatial, coords = c("X", "Y"), crs = UTM_zone_10_crs) -> csyis_sf
 
 st_distance(csyis_sf, US_west_coast_proj_km) -> csyis_dist_shore
 
-csyis$sf_dist_shore <- csyis_dist_shore
+csyis$sf_dist_shore <- as.numeric(csyis_dist_shore)
 # they're similar - but not identical
-hist(as.numeric(csyis_test$sf_dist_shore)-csyis_test$km_from_shore)
+hist(as.numeric(csyis$sf_dist_shore)-csyis_spatial$km_from_shore)
 # and they're pretty biased - the distances calculated using sf tend to be smaller
 # Let's just use the sf distance from shore calculated for both prediction grid and
 # the samples themselves
@@ -885,49 +920,157 @@ hist(as.numeric(csyis_test$sf_dist_shore)-csyis_test$km_from_shore)
 ```
 
 
+```{r create_prediction_grid}
+# some sanity checks to make sure that things are how they should be
+
+# are all points within 100 km from shore?
+# yeah, pretty much, maybe a few over that we'll consider just rounding errors
+range(survey_domain_cov$sf_dist_shore)
+
+# plot it - looks good!
+ggplot(survey_domain_cov) + geom_sf()
+
+
+
+# Now let's reformat it to be in the form of a data frame that we can use to predict
+as.data.frame(st_coordinates(survey_domain_cov)) -> survey_domain_cov_coords
+survey_predict_grid <- data.frame(X = survey_domain_cov_coords$X,
+                                  Y = survey_domain_cov_coords$Y,
+                                  SST = survey_domain_cov$SST,
+                                  year = survey_domain_cov$year,
+                                  dist_shore = as.numeric(survey_domain_cov$sf_dist_shore))
+
+```
+
+
+Now, we need to z-score data to make prepare it for model fitting
+```{r rescale-data}
+# rescale data
+csyis %>% 
+  mutate(SST_scaled = as.numeric(scale(x3m_temp_c)),
+         dist_shore_scaled = as.numeric(scale(sf_dist_shore))) -> csyis
+
+# rescale projection grid
+survey_predict_grid %>% 
+  mutate(SST_scaled = as.numeric(scale(SST)),
+         dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid
+```
+
 
 
 
 ```{r fit-cov-model-TMB, eval = FALSE}
-A_gs
+# for distance - just pull from prediction grid, for a single year
+distance_projection_vector <- as.numeric(filter(survey_predict_grid, year == 1998)$dist_shore_scaled)
+
+# for SST - take prediction grid, add SST with locations as rows and years as column
+survey_predict_grid %>% 
+  dplyr::select(-dist_shore) %>% 
+  pivot_wider(names_from = year, values_from = SST_scaled) %>% 
+  dplyr::select(-c(X, Y)) %>% 
+  as.matrix() -> temperature_projection_matrix
 
 
+# sanity check that all our covariates and projection matrices are the same dimensions
+length(distance_projection_vector)
+dim(temperature_projection_matrix)
+dim(A_gs)
+# very nice!
 
-compile(here::here("analysis", "jsoes_st_cov_sdm.cpp"))
-dyn.load( dynlib(here::here("analysis", "jsoes_st_cov_sdm")))
+# look at projection histograms
+hist(distance_projection_vector)
+hist(temperature_projection_matrix)
+
+# look at data histograms
+hist(csyis$n_per_km)
+hist(csyis$SST_scaled)
+hist(csyis$dist_shore_scaled)
+
+summary(csyis$SST_scaled)
+summary(csyis$dist_shore_scaled)
+
+compile(here::here("analysis", "jsoes_st_cov_sdm_1.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_st_cov_sdm_1")))
 
 Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
-             "temp_i" = csyis$x3m_temp_c, "dist_i" = csyis$sf_dist_shore,
+             "temp_i" = csyis$SST_scaled, "dist_i" = csyis$dist_shore_scaled,
              "dist_g" = distance_projection_vector, "temp_gt" = temperature_projection_matrix, 
              "n_t" = length(unique(csyis$year)),
              "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
 Params = list( "beta_t"=rep(0, length(unique(csyis$year))), 
                "beta_temp" = 0, "beta_dist" = 0,
                "ln_tau_omega"=0, "ln_tau_epsilon"=0,
-               "ln_kappa"=0, "logit_rhoE" = 0,  "ln_phi" = 0, 
+               "ln_kappa"=0, "ln_phi" = 0, 
                "finv_power" = 0, "omega_s"=rnorm(nrow(spde$c0)),
                "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
 
-stac_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st"),
-                 DLL = "jsoes_st_cov_sdm")
+st_cov_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st"),
+                 DLL = "jsoes_st_cov_sdm_1")
+
 
 # Optimize
-stac_Opt = nlminb( start=stac_Obj$par, obj=stac_Obj$fn, grad=stac_Obj$gr )
+st_cov_Opt = nlminb( start=st_cov_Obj$par, obj=st_cov_Obj$fn, grad=st_cov_Obj$gr )
 # Opt$SD = sdreport( Obj, bias.correct=TRUE )
-stac_report = stac_Obj$report()
+st_cov_report = st_cov_Obj$report()
 ```
 
-```{r fit-cov-model-3-sdmTMB}
+```{r fit-cov-model-sdmTMB}
 # Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
-jsoes_stac_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
+jsoes_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
                          data = csyis,
                          mesh = mesh_sdmTMB,
                          time = "year",
                          spatial = "on",
-                         spatiotemporal = "ar1",
+                         spatiotemporal = "iid",
                          family = tweedie(link = "log"))
+
+sanity(jsoes_st_cov_sdmTMB)
+AIC(jsoes_st_cov_sdmTMB)
+
+# check for alignment
+# Not the same. I truly have no idea why...
+jsoes_st_cov_sdmTMB
+st_cov_report$beta_t
+st_cov_report$beta_dist
+st_cov_report$beta_temp
+
+
+# Fit another model, with splines for depth and distance
+jsoes_st_cov_splines_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + s(SST_scaled) + s(dist_shore_scaled),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "iid",
+                         family = tweedie(link = "log"))
+
+sanity(jsoes_st_cov_splines_sdmTMB)
+AIC(jsoes_st_cov_splines_sdmTMB)
+# doesn't pass sanity check, and it looks like smooth term for distance has a SD that went to zero
+# and the smooth term for SST has a SD that got really big
+
 ```
 
+
+```{r predict-with-covariates}
+survey_predict_grid
+# check for no missing values in prediction grid
+which(is.na(survey_predict_grid))
+
+
+jsoes_st_cov_sdmTMB_pred <- predict(jsoes_st_cov_sdmTMB, newdata = survey_predict_grid)
+
+# plot the predictions
+# I'm sure I could dial the geom_tile argument in a bit better based on the actual grid size of 0.05 lat x 0.05 long, but oh well... according to NOAA these tiles should be approx 4 km wide by 6 km tall
+jsoes_density_predictions_cov <- survey_area_basemap_km +
+  geom_tile(data = jsoes_st_cov_sdmTMB_pred, aes(x = X, y = Y, fill = exp(est)),
+            width = 7, height = 7) +
+  scale_fill_viridis_c() +
+  facet_wrap(~year) +
+  theme_light()
+
+ggsave(here::here("figures", "jsoes_st_cov_sdmTMB_pred_plots.png"), plot = jsoes_density_predictions_cov, height = 30, width = 25)
+```
 
 
 
