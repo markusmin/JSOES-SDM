@@ -1,0 +1,78 @@
+---
+title: "FISH 556 Final Project"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+bibliography: "JSOES.bib"
+csl: "ecology.csl"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r echo=FALSE, message=FALSE,warning=FALSE}
+knitr::opts_chunk$set(fig.pos = "H", out.extra = "")
+```
+
+## Abstract
+
+
+## Introduction
+
+While the freshwater and estuarine phases of Pacific salmon on the U.S. West Coast have a long and extensive history of study, the ocean ecology of these stocks has only been a major research focus for the past 25 years [@Wells2020]. The largest coordinated effort in this area of study has been the Juvenile Salmon and Ocean Ecology Survey (JSOES), which has conducted annual surveys of the surface waters off the coast of Washington and Oregon since 1998 (Fig. 1). JSOES data has been used to address a number of research questions related to the abundance and distribution of salmon stocks [e.g., @Teel2015] and is currently being used to generate indicators of the abundance of juvenile salmon and other surface-oriented taxa in the Northern California Current for the annual Ecosystem Status Report [@Leising2024]. However, these analyses have typically only analyzed abundance by dividing the number of individuals by the volume of water swept [@Thompson2019], a method which does not account for the spatial and temporal correlation inherent in the data [@Cressie2015]. In this project, I am proposing to re-analyze this survey data using a spatiotemporal model (sdmTMB, @Anderson2022a) to look into interannual variability in species distributions (e.g., juvenile salmon, surface-oriented fishes, squid, and jellies). From the fitted model, many metrics can be derived, including area-weighted indices of abundance, overlap between species (e.g., salmon and their predators or prey), and the influence of environmental covariates on species distributions.
+
+![Map of the JSOES survey area from @Barcelo2021.](/Users/markusmin/Documents/UW_courses/Spring_2024/FISH556/Project/figures/JSOES_map_barcelo_2021.jpg){width=40%}
+
+
+## Methods
+
+### Data collection
+
+
+For this analysis, the survey data will be restricted to taxa that are adequately captured by the survey. For example, forage fish that are not in the upper water column during daytime hours (which is when the survey is conducted) will be excluded, as will species that are too small for the mesh size. Although the survey has been conducted in May, June, and September, only the June survey will be retained for this analysis, as it is the only month which has been sampled every year. CTD depth profiles were conducted at all sampling stations, and the CTD sample at 3 m depth will be paired with the tow, which sampled the upper 20 m of the water column. 
+
+Data will be analyzed in R using the package sdmTMB [@Anderson2022a]. The full dataset will first be split into a dataset for each species/taxon, as these will initially be analyzed separately to generate species distribution maps. The species-specific data will be reformatted into a data frame that is composed of one row for each tow, with columns for the survey year, density of that species in the tow, the presence/absence of that species, the bottom depth at the tow location, the latitude of the tow location, the longitude of the tow location, and any other covariates that may be relevant to the species’ distribution (e.g., SST). This reformatted data frame will then be fit using sdmTMB. Outputs from this analysis will include a map of species distribution for each year, estimates of the effects of various covariates on species presence/absence or abundance, and an area-weighted index of abundance through time for the survey area.
+
+### Statistical model
+
+
+
+### Area-weighted index of abundance
+
+
+
+### Species overlap
+
+Using the best fit model identified in the previous step, we calculate our first derived metric: overlap between the distributions of different taxa. While there are many metrics that can described the overlap between two species [@Carroll2019], we applied the local index of collocation metric [@Pianka1973]. This measures the co-occurrence by estimating the correlation of densities of two species (e.g., a predator a prey species), and uses the following equation:
+$$
+\frac{\sum\limits_{i=1}^n (p\_pred_i*p\_prey_i) }{\sqrt{\sum\limits_{i=1}^n p\_pred_i^2 * \sum\limits_{i=1}^n p\_prey_i^2}}
+
+$$
+
+In this study, we use this metric to investigate how both competition between two species (Chinook salmon and Coho salmon) and predator-prey overlap (Chinook salmon and water jellies) vary through space and time.
+
+
+#### Competition
+
+For competition, we examine the degree of overlap between Coho and Chinook salmon. Stable isotope analysis indicates that these salmonids have similar trophic niches [@Johnson2008], suggesting potential competition.
+
+
+
+#### Predator-prey
+Because of the selectivity of this survey (owing to both a larger mesh size and the diel vertical migration of many important prey species), many of the most common prey items for Chinook salmon (e.g., juvenile rockfishes, crab larvae) are not well sampled for this survey. However, as a proof of concept for measuring predator-prey overlap, we examine overlap between Chinook salmon distribution and that of water jellies (*Aequeora spp.*). We chose water jellies as an example prey species as Chinook salmon have been observed to eat some gelatinous zooplankton [@Daly2009] and they may serve as a proxy for poor feeding conditions given their lower energy content relative to other types of prey [@Brodeur2019].
+
+
+
+## Results
+
+
+
+## Discussion
+
+Many quantities can be derived from spatiotemporal models that could inform future modeling efforts or management. For example, metrics of overlap between different taxa could help parameterize ecosystem models of various levels of complexity. Indices of abundance could help forecast salmon returns for stocks that are well surveyed by JSOES, which include many stocks in the Columbia River Basin. These indices of abundance could also be used as inputs to multivariate time series models, which could estimate the strength of interactions between taxa caught in this survey, as well as the impact of environmental covariates (either measured in situ or from remote sensing) on these taxa. 
+
+
+### References
+
+<br>
+
+
