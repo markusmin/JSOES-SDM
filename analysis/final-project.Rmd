@@ -90,7 +90,10 @@ survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
         panel.grid.minor = element_blank(),
         legend.position = c(0.14, 0.2),
         legend.title = element_text(size = 14),
-        legend.text = element_text(size = 12))
+        legend.text = element_text(size = 12),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+  # temporary fix for lat/long on axes to just get rid of them - start here to actually fix: https://forum.posit.co/t/converting-axes-to-lat-lon/27181
 
 survey_area_basemap_km
 
@@ -98,6 +101,7 @@ survey_area_basemap <- ggplot(US_west_coast) +
   geom_sf() +
   geom_sf(data = BC_coast) +
   coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  scale_x_continuous(breaks = c(124,125,126)) +
   ylab("Latitude")+
   xlab("Longitude")+
   theme(plot.background = element_rect(fill = "white"),
@@ -113,20 +117,19 @@ survey_area_basemap <- ggplot(US_west_coast) +
 
 ## JSOES data preparation for TMB
 ```{r prep-data}
-# Subset data for one species
-csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
-
 # for now, let's drop any data that's missing lat/longs
-csyis <- filter(csyis, !(is.na(mid_lat)))
+jsoes_long <- filter(jsoes_long, !(is.na(mid_lat)))
 
 # Drop any samples that don't have temperature data (we could interpolate both of these later)
-csyis <- filter(csyis, !(is.na(x3m_temp_c)))
+jsoes_long <- filter(jsoes_long, !(is.na(x3m_temp_c)))
+
+
 
 # Add UTM coordinates to get an equal distance projection and get lat/longs
-utm_crs <- get_crs(csyis, c("mid_long", "mid_lat")) # check that
+utm_crs <- get_crs(jsoes_long, c("mid_long", "mid_lat")) # check that
 
-csyis <- add_utm_columns(
-  csyis,
+jsoes_long <- add_utm_columns(
+  jsoes_long,
   ll_names = c("mid_long", "mid_lat"),
   ll_crs = 4326,
   utm_names = c("Lon.km", "Lat.km"),
@@ -136,13 +139,26 @@ csyis <- add_utm_columns(
 
 
 # Change Lon.km and Lat.km columns to X and Y to avoid problems later
-csyis %>% 
-  dplyr::rename(X = Lon.km, Y = Lat.km) -> csyis
+jsoes_long %>% 
+  dplyr::rename(X = Lon.km, Y = Lat.km) -> jsoes_long
+
+
+
+
+# Subset data for individual species
+csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
+coho <- subset(jsoes_long, species == "coho_salmon_yearling")
+water_jellies <- subset(jsoes_long, species == "water_jelly")
+
 
 
 # quick check
 hist(csyis$n_per_km)
 summary(csyis$n_per_km)
+hist(coho$n_per_km)
+summary(coho$n_per_km)
+hist(water_jellies$n_per_km)
+summary(water_jellies$n_per_km)
 ```
 
 
@@ -218,8 +234,8 @@ ggplot(grid_within_100km_shore) +
   geom_sf()
 
 
-min(csyis$Y) -> min_Y
-max(csyis$Y) -> max_Y
+min(jsoes_long$Y) -> min_Y
+max(jsoes_long$Y) -> max_Y
 
 
 survey_domain <- st_crop(grid_within_100km_shore, xmin = 0, xmax = 100000, ymin=min_Y-20, ymax=max_Y+20)
@@ -268,7 +284,37 @@ survey_area_basemap_km +
 ```
 
 
-```{r start creation prediction grid}
+```{r plot-data}
+plot_distribution <- function(data){
+  # create facet_wrap plot for distribution across all years
+  data %>% 
+    mutate(encounter = ifelse(n_per_km == 0, "zero", "non-zero")) -> data
+  
+  survey_area_basemap +
+      geom_point(data = data, aes(x = mid_long, y = mid_lat, size = n_per_km, color = encounter),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("zero" = "#fc9272", "non-zero" = "#2ca25f")) +
+    facet_wrap(~year, nrow = 3) +
+    theme(legend.position = c(0.95, 0.1)) +
+    ggtitle(paste0(unique(data$species))) -> species_distribution_plot
+  
+  return(species_distribution_plot)
+}
+
+csyis_dist_plot <- plot_distribution(data = csyis)
+coho_dist_plot <- plot_distribution(data = coho)
+water_jellies_dist_plot <- plot_distribution(data = water_jellies)
+
+
+ggsave(here::here("figures", "csyis_distribution_plot.png"), plot = csyis_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "coho_distribution_plot.png"), plot = coho_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "water_jellies_distribution_plot.png"), plot = water_jellies_dist_plot, height = 12, width = 17)
+
+```
+
+
+
+```{r create-prediction-grid}
 # Take SST grid and intersect with survey domain
 SST_sf_proj %>% 
   mutate(geometry = geometry/1000) %>% 
@@ -282,9 +328,23 @@ SST_survey_domain %>%
   # I'm not sure why we have to filter again here, but make sure to exclude points that are 
   # > 100 km from shore and < 0.5 km from shore - maybe some rounding errors?
   filter(sf_dist_shore <= 100 & sf_dist_shore >= 0.5) -> survey_domain_cov
+
+# plot it - looks good!
+ggplot(survey_domain_cov) + geom_sf()
+
+# Now let's reformat it to be in the form of a data frame that we can use to predict
+as.data.frame(st_coordinates(survey_domain_cov)) -> survey_domain_cov_coords
+survey_predict_grid <- data.frame(X = survey_domain_cov_coords$X,
+                                  Y = survey_domain_cov_coords$Y,
+                                  SST = survey_domain_cov$SST,
+                                  year = survey_domain_cov$year,
+                                  dist_shore = as.numeric(survey_domain_cov$sf_dist_shore))
+
+# rescale prediction grid
+survey_predict_grid %>% 
+  mutate(SST_scaled = as.numeric(scale(SST)),
+         dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid
 ```
-
-
 
 
 ```{r create-mesh}
@@ -307,9 +367,9 @@ SST_survey_domain %>%
 # st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
 
 
-mesh = fm_mesh_2d( st_coordinates(st_centroid(survey_grid_df)), 
-                   plot.delay = NULL, 
-                   refine = TRUE )
+# mesh = fm_mesh_2d( st_coordinates(st_centroid(survey_grid_df)), 
+#                    plot.delay = NULL, 
+#                    refine = TRUE )
 
 # second attempt at a mesh
 inla_mesh <- fmesher::fm_mesh_2d_inla(
@@ -322,6 +382,7 @@ spde <- fm_fem( inla_mesh,
                 order = 2 )
 
 # create projection matrix from vertices to samples
+# Because all species have the same sampling intensity, we can just use one of the DFs here
 A_is = fm_evaluator(inla_mesh, loc = as.matrix(data.frame(X = csyis$X, Y = csyis$Y)))$proj$A
 
 # create projection matrix from vertices to prediction grid
@@ -331,16 +392,16 @@ A_gs = fm_evaluator( inla_mesh, loc=st_coordinates(survey_domain_cov_grid))$proj
 # A_gs = fm_evaluator( inla_mesh, loc=st_coordinates(st_centroid(survey_grid_df)))$proj$A
 
 # Make the sdmTMB mesh
-csyis_mesh <- make_mesh(csyis, xy_cols = c("X", "Y"), cutoff = 10)
+# csyis_mesh <- make_mesh(csyis, xy_cols = c("X", "Y"), cutoff = 10)
 # plot(csyis_mesh)
 # for consistency, use the inla_mesh for all
 mesh_sdmTMB <- make_mesh(csyis, xy_cols = c("X", "Y"), mesh = inla_mesh)
 
 # confirm that the meshes used for bespoke TMB and sdmTMB are the same
-plot(csyis_mesh)
+# plot(csyis_mesh)
 plot(inla_mesh)
 plot(mesh_sdmTMB)
-plot(mesh)
+# plot(mesh)
 # Let's use the inla mesh, it looks most reasonable (and very close to the default sdmTMB make_mesh one)
 ```
 
@@ -895,51 +956,34 @@ To get predicted estimates for the survey grid, we need the values of covariates
   
   
 ```{r calculate_dist_shore, eval = FALSE}
-# grid_yrs_sf <- st_as_sf(grid_yrs, crs = UTM_zone_10_crs, coords = c("X", "Y"))
-
-# make this projection into kilometers
-# US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
-
-# st_distance(grid_yrs_sf, US_west_coast_proj_km) -> grid_dist_shore
-
-# confirm that these are reasonable, based on points from survey
 dplyr::select(csyis, station, km_from_shore, X, Y) -> csyis_spatial
 st_as_sf(csyis_spatial, coords = c("X", "Y"), crs = UTM_zone_10_crs) -> csyis_sf
-
 st_distance(csyis_sf, US_west_coast_proj_km) -> csyis_dist_shore
-
 csyis$sf_dist_shore <- as.numeric(csyis_dist_shore)
+
+
+dplyr::select(coho, station, km_from_shore, X, Y) -> coho_spatial
+st_as_sf(coho_spatial, coords = c("X", "Y"), crs = UTM_zone_10_crs) -> coho_sf
+st_distance(coho_sf, US_west_coast_proj_km) -> coho_dist_shore
+coho$sf_dist_shore <- as.numeric(coho_dist_shore)
+
+
+dplyr::select(water_jellies, station, km_from_shore, X, Y) -> water_jellies_spatial
+st_as_sf(water_jellies_spatial, coords = c("X", "Y"), crs = UTM_zone_10_crs) -> water_jellies_sf
+st_distance(water_jellies_sf, US_west_coast_proj_km) -> water_jellies_dist_shore
+water_jellies$sf_dist_shore <- as.numeric(water_jellies_dist_shore)
+
+
+
+
+
+
+# confirm that these are reasonable, based on points from survey
 # they're similar - but not identical
 hist(as.numeric(csyis$sf_dist_shore)-csyis_spatial$km_from_shore)
 # and they're pretty biased - the distances calculated using sf tend to be smaller
 # Let's just use the sf distance from shore calculated for both prediction grid and
 # the samples themselves
-
-
-
-```
-
-
-```{r create_prediction_grid}
-# some sanity checks to make sure that things are how they should be
-
-# are all points within 100 km from shore?
-# yeah, pretty much, maybe a few over that we'll consider just rounding errors
-range(survey_domain_cov$sf_dist_shore)
-
-# plot it - looks good!
-ggplot(survey_domain_cov) + geom_sf()
-
-
-
-# Now let's reformat it to be in the form of a data frame that we can use to predict
-as.data.frame(st_coordinates(survey_domain_cov)) -> survey_domain_cov_coords
-survey_predict_grid <- data.frame(X = survey_domain_cov_coords$X,
-                                  Y = survey_domain_cov_coords$Y,
-                                  SST = survey_domain_cov$SST,
-                                  year = survey_domain_cov$year,
-                                  dist_shore = as.numeric(survey_domain_cov$sf_dist_shore))
-
 ```
 
 
@@ -950,10 +994,14 @@ csyis %>%
   mutate(SST_scaled = as.numeric(scale(x3m_temp_c)),
          dist_shore_scaled = as.numeric(scale(sf_dist_shore))) -> csyis
 
-# rescale projection grid
-survey_predict_grid %>% 
-  mutate(SST_scaled = as.numeric(scale(SST)),
-         dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid
+coho %>% 
+  mutate(SST_scaled = as.numeric(scale(x3m_temp_c)),
+         dist_shore_scaled = as.numeric(scale(sf_dist_shore))) -> coho
+
+water_jellies %>% 
+  mutate(SST_scaled = as.numeric(scale(x3m_temp_c)),
+         dist_shore_scaled = as.numeric(scale(sf_dist_shore))) -> water_jellies
+
 ```
 
 
@@ -1016,7 +1064,9 @@ st_cov_report = st_cov_Obj$report()
 
 ```{r fit-cov-model-sdmTMB}
 # Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
-jsoes_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
+
+### CHINOOK INTERIOR SPRING
+csyis_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
                          data = csyis,
                          mesh = mesh_sdmTMB,
                          time = "year",
@@ -1024,15 +1074,46 @@ jsoes_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist
                          spatiotemporal = "iid",
                          family = tweedie(link = "log"))
 
-sanity(jsoes_st_cov_sdmTMB)
-AIC(jsoes_st_cov_sdmTMB)
+sanity(csyis_st_cov_sdmTMB)
+AIC(csyis_st_cov_sdmTMB)
+
+
+
+### COHO YEARLINGS
+coho_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
+                         data = coho,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "iid",
+                         family = tweedie(link = "log"))
+
+sanity(coho_st_cov_sdmTMB)
+AIC(coho_st_cov_sdmTMB)
+
+
+
+### WATER JELLIES
+water_jellies_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
+                         data = water_jellies,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "iid",
+                         family = tweedie(link = "log"))
+
+sanity(water_jellies_st_cov_sdmTMB)
+AIC(water_jellies_st_cov_sdmTMB)
 
 # check for alignment
 # Not the same. I truly have no idea why...
-jsoes_st_cov_sdmTMB
+csyis_st_cov_sdmTMB
 st_cov_report$beta_t
 st_cov_report$beta_dist
 st_cov_report$beta_temp
+
+# Maybe we can see a difference in number of parameters?
+csyis_st_cov_sdmTMB$tmb_params
 
 
 # Fit another model, with splines for depth and distance
@@ -1058,18 +1139,50 @@ survey_predict_grid
 which(is.na(survey_predict_grid))
 
 
-jsoes_st_cov_sdmTMB_pred <- predict(jsoes_st_cov_sdmTMB, newdata = survey_predict_grid)
+csyis_st_cov_sdmTMB_pred <- predict(csyis_st_cov_sdmTMB, newdata = survey_predict_grid)
+coho_st_cov_sdmTMB_pred <- predict(coho_st_cov_sdmTMB, newdata = survey_predict_grid)
+water_jellies_st_cov_sdmTMB_pred <- predict(water_jellies_st_cov_sdmTMB, newdata = survey_predict_grid)
 
 # plot the predictions
-# I'm sure I could dial the geom_tile argument in a bit better based on the actual grid size of 0.05 lat x 0.05 long, but oh well... according to NOAA these tiles should be approx 4 km wide by 6 km tall
-jsoes_density_predictions_cov <- survey_area_basemap_km +
-  geom_tile(data = jsoes_st_cov_sdmTMB_pred, aes(x = X, y = Y, fill = exp(est)),
+plot_density_predictions <- function(predictions){
+  # I'm sure I could dial the geom_tile argument in a bit better based on the actual grid size of 0.05 lat x 0.05 long, but oh well... according to NOAA these tiles should be approx 4 km wide by 6 km tall
+density_predictions_map <- survey_area_basemap_km +
+  geom_tile(data = predictions, aes(x = X, y = Y, fill = exp(est)),
             width = 7, height = 7) +
-  scale_fill_viridis_c() +
-  facet_wrap(~year) +
+  scale_fill_viridis_c( trans = "sqrt",
+                        # trim extreme high values to make spatial variation more visible
+                        na.value = "yellow", limits = c(0, quantile(exp(predictions$est), 0.995))) +
+  facet_wrap(~year, nrow = 3) +
   theme_light()
 
-ggsave(here::here("figures", "jsoes_st_cov_sdmTMB_pred_plots.png"), plot = jsoes_density_predictions_cov, height = 30, width = 25)
+return(density_predictions_map)
+  
+}
+
+csyis_prediction_map <- plot_density_predictions(predictions = csyis_st_cov_sdmTMB_pred)
+coho_prediction_map <- plot_density_predictions(predictions = coho_st_cov_sdmTMB_pred)
+water_jellies_prediction_map <- plot_density_predictions(predictions = water_jellies_st_cov_sdmTMB_pred)
+
+
+
+ggsave(here::here("figures", "csyis_prediction_map.png"), plot = csyis_prediction_map, height = 12, width = 17)
+ggsave(here::here("figures", "coho_prediction_map.png"), plot = coho_prediction_map, height = 12, width = 17)
+ggsave(here::here("figures", "water_jellies_prediction_map.png"), plot = water_jellies_prediction_map, height = 12, width = 17)
+```
+
+
+```{r covariate_model_diagnostics}
+csyis$cov_resids <- residuals(csyis_st_cov_sdmTMB)
+qqnorm(csyis$cov_resids)
+qqline(csyis$cov_resids)
+
+csyis_st_cov_sdmTMB_residuals_plot <- ggplot(csyis, aes(X, Y, col = cov_resids)) +
+  scale_colour_gradient2() +
+  geom_point() +
+  facet_wrap(~year) +
+  coord_fixed()
+
+ggsave(here::here("figures", "csyis_st_cov_sdmTMB_residuals_plots.png"), plot = csyis_st_cov_sdmTMB_residuals_plot, height = 30, width = 25)
 ```
 
 
@@ -1078,11 +1191,38 @@ ggsave(here::here("figures", "jsoes_st_cov_sdmTMB_pred_plots.png"), plot = jsoes
 
 
 ```{r index_standardization_function}
-# here, write a function that generates an index of abundance across our study time period
+# In our case, each cell is the same size: 0.05 lat x 0.05 lon
+# which... maybe is not all the same in km
+# based on calculations from earlier they're approximately 4 x 6 km = 24 km area
+
+# get predictions, with return_tmb_object = TRUE
+
+csyis_st_cov_sdmTMB_pred_TMB <- predict(csyis_st_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
+coho_st_cov_sdmTMB_pred_TMB <- predict(coho_st_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
+water_jellies_st_cov_sdmTMB_pred_TMB <- predict(water_jellies_st_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
+
+csyis_index_of_abundance <- get_index(csyis_st_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
+coho_index_of_abundance <- get_index(coho_st_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
+water_jellies_index_of_abundance <- get_index(water_jellies_st_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
+
 ```
 
-```{r index_standardization_implementation}
-# here, generate an index of abundance for our different Genetic Stock groups
+```{r plot_indices}
+csyis_abundance_plot <- ggplot(csyis_index_of_abundance, aes(year, est)) + geom_line() +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.4) +
+  xlab('Year') + ylab('Estimated individuals')
+
+coho_abundance_plot <- ggplot(coho_index_of_abundance, aes(year, est)) + geom_line() +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.4) +
+  xlab('Year') + ylab('Estimated individuals')
+
+water_jellies_abundance_plot <- ggplot(water_jellies_index_of_abundance, aes(year, est)) + geom_line() +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.4) +
+  xlab('Year') + ylab('Estimated individuals')
+
+ggsave(here::here("figures", "csyis_abundance_plot.png"), plot = csyis_abundance_plot, height = 6, width = 8)
+ggsave(here::here("figures", "coho_abundance_plot.png"), plot = coho_abundance_plot, height = 6, width = 8)
+ggsave(here::here("figures", "water_jellies_abundance_plot.png"), plot = water_jellies_abundance_plot, height = 6, width = 8)
 ```
 
 
@@ -1099,6 +1239,41 @@ $$
 This can also be used to measure competition.
 
 
+```{r calculate_collocation}
+collocation_metric <- function(grid1, grid2){
+  dplyr::select(grid1, X, Y, year, est) %>% 
+    dplyr::rename(est1 = est) %>% 
+    bind_cols(., grid2$est) %>% 
+    dplyr::rename(est2 = `...5`) %>% 
+    # convert to normal space
+    mutate(est1 = exp(est1)) %>% 
+    mutate(est2 = exp(est2)) -> combined_grid
+  
+  combined_grid %>% 
+    mutate(predxprey = est1 * est2) -> combined_grid
+  
+  # calculate for each year
+  combined_grid %>% 
+    group_by(year) %>% 
+    summarise(numerator = sum(predxprey)) -> numerator_by_year
+  
+  combined_grid %>% 
+    group_by(year) %>% 
+    summarise(denominator = sqrt(sum(est1^2)*sum(est2^2))) -> denominator_by_year
+  
+  numerator_by_year %>% 
+    left_join(denominator_by_year, by = "year") %>% 
+    mutate(index = numerator/denominator) %>% 
+    dplyr::select(year, index) -> index_by_year
+  
+
+  return(index_by_year)
+  
+}
+
+competition_index <- collocation_metric(grid1 = csyis_st_cov_sdmTMB_pred, grid2 = coho_st_cov_sdmTMB_pred)
+predator_prey_index <- collocation_metric(grid1 = csyis_st_cov_sdmTMB_pred, grid2 = water_jellies_st_cov_sdmTMB_pred)
+```
 
 
 
