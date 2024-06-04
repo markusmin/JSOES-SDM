@@ -11,8 +11,6 @@ Type objective_function<Type>::operator() ()
   DATA_VECTOR(D_i);  // density for measurement i
   DATA_IVECTOR(t_i); // index for the year of measurement i
   DATA_INTEGER(n_t); // number of years in the dataset
-  DATA_VECTOR(temp_i);  // temperature for measurement i
-  DATA_VECTOR(dist_i);  // distance from shore for measurement i
   
   // SPDE objects
   DATA_SPARSE_MATRIX(M0);
@@ -23,19 +21,16 @@ Type objective_function<Type>::operator() ()
   DATA_SPARSE_MATRIX(A_is);
   DATA_SPARSE_MATRIX(A_gs);
   
-  DATA_MATRIX(temp_gt); // temperature at each location in each year
-  DATA_VECTOR(dist_g); // distance from shore at each location
-  
-  
   // Parameters
   PARAMETER_VECTOR( beta_t );
-  PARAMETER( beta_temp );
-  PARAMETER( beta_dist );
   PARAMETER( ln_tau_omega );
   PARAMETER( ln_tau_epsilon );
   PARAMETER( ln_kappa );
+  PARAMETER( logit_rhoB );
+    PARAMETER( logit_rhoE );
   PARAMETER( ln_phi ); // phi term in tweedie
   PARAMETER( finv_power ); // power parameter in tweedie
+  PARAMETER( ln_sigmaB ); // variance of temporal parameter
   
   // Random effects
   PARAMETER_VECTOR( omega_s );
@@ -45,6 +40,8 @@ Type objective_function<Type>::operator() ()
   Type jnll = 0;
   int n_i = A_is.rows();
   int n_g = A_gs.rows();
+  Type rhoB = invlogit( logit_rhoB );
+Type rhoE = invlogit( logit_rhoE );
   
   // Derived quantities
   Type Range = sqrt(8) / exp( ln_kappa );
@@ -55,9 +52,13 @@ Type objective_function<Type>::operator() ()
   Eigen::SparseMatrix<Type> Q = exp(4*ln_kappa)*M0 + Type(2.0)*exp(2*ln_kappa)*M1 + M2;
   // spatial random effect - scaled by ln_tau_omega
   jnll += SCALE( GMRF(Q), 1/exp(ln_tau_omega) )( omega_s );
-  // spatio-temporal random effect - scaled by ln_tau_epsilon
+  // spatio-temporal random effect - autocorrelated and scaled by ln_tau_epsilon
   for( int t=0; t<n_t; t++){
-    jnll += SCALE( GMRF(Q), 1/exp(ln_tau_epsilon) )( epsilon_st.col(t) );
+    if( t==0 ){
+      jnll += SCALE( GMRF(Q), 1 / exp(ln_tau_epsilon) / pow( 1.0-pow(rhoE,2), 0.5 ) )( epsilon_st.col(t) );
+    }else{
+      jnll += SCALE( GMRF(Q), 1 / exp(ln_tau_epsilon) )( epsilon_st.col(t) - rhoE*epsilon_st.col(t-1) );
+    }
   }
   
   // projections
@@ -76,8 +77,19 @@ Type objective_function<Type>::operator() ()
   dhat_i.setZero();
   
   
+  // beta_t: Temporally autocorrelated random effect
+  Type zero = 0;
+  for( int t=0; t<n_t; t++){
+    if( t==0 ){
+      jnll -= dnorm(beta_t(t), zero, 1/(1-pow(rhoB, 2))*exp(ln_sigmaB), true );
+    }else{
+      jnll -= dnorm(beta_t(t), rhoB*beta_t(t-1), exp(ln_sigmaB), true);
+    }
+  }
+  
+  
   for( int i=0; i<D_i.size(); i++){
-    dhat_i(i) = exp( beta_t(t_i(i)) + beta_temp*temp_i(i) + omega_i(i) + epsilon_it(i,t_i(i)) );
+    dhat_i(i) = exp( beta_t(t_i(i)) + omega_i(i) + epsilon_it(i,t_i(i)) );
     jnll -= dtweedie( D_i(i), dhat_i(i), exp(ln_phi), Type(1.0)+invlogit(finv_power), true );
   }
   
@@ -85,7 +97,7 @@ Type objective_function<Type>::operator() ()
   array<Type> ln_d_gt( n_g, n_t );
   for( int t=0; t<n_t; t++){
     for( int g=0; g<n_g; g++){
-      ln_d_gt(g,t) = beta_t(t) + beta_temp*temp_gt(g,t) + beta_dist*dist_g(g) + omega_g(g) + epsilon_gt(g,t);
+      ln_d_gt(g,t) = beta_t(t) + omega_g(g) + epsilon_gt(g,t);
     }
   }
   
@@ -93,13 +105,14 @@ Type objective_function<Type>::operator() ()
   // Reporting
   REPORT( dhat_i );
   REPORT( beta_t );
-  REPORT( beta_temp );
-  REPORT( beta_dist );
   REPORT( ln_tau_omega );
   REPORT( ln_tau_epsilon );
   REPORT( ln_kappa );
   REPORT( ln_phi );
   REPORT( finv_power );
+  REPORT( logit_rhoB );
+  REPORT( logit_rhoE );
+  REPORT( ln_sigmaB );
   REPORT(SigmaO);
   REPORT(SigmaE);
   REPORT(Range);
