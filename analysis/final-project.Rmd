@@ -199,9 +199,11 @@ sf::st_transform(SST_sf, crs = UTM_zone_10_crs) -> SST_sf_proj
 
 SST_plots <- survey_area_basemap +
   geom_sf(data = SST_sf_proj, aes(color = SST)) +
-  facet_wrap(~year)
+  scale_color_viridis_c(option = "A")+
+  facet_wrap(~year, nrow = 3) +
+  theme(legend.position = c(0.95, 0.1))
 
-ggsave(here::here("figures", "SST_plots.png"), plot = SST_plots, height = 20, width = 15)
+ggsave(here::here("figures", "SST_plots.png"), plot = SST_plots, height = 12, width = 17)
 ```
 
 
@@ -295,8 +297,7 @@ plot_distribution <- function(data){
                  alpha = 0.5) +
     scale_color_manual(values = c("zero" = "#fc9272", "non-zero" = "#2ca25f")) +
     facet_wrap(~year, nrow = 3) +
-    theme(legend.position = c(0.95, 0.1)) +
-    ggtitle(paste0(unique(data$species))) -> species_distribution_plot
+    theme(legend.position = c(0.95, 0.1)) -> species_distribution_plot
   
   return(species_distribution_plot)
 }
@@ -350,28 +351,6 @@ survey_predict_grid %>%
 ```{r create-mesh}
 
 # Create mesh for SPDE
-# Let's make a mesh for the survey area
-# Make a big bounding box, from 44 to 48.5 lat, -126 to -123 long, then take difference with land
-# grid = st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
-# strait = st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
-# st_difference(grid, strait) -> survey_grid # remove strait of Juan de Fuca
-# st_difference(survey_grid, usa_spdf) -> survey_grid # remove land
-# st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
-
-# grid <- st_make_grid( st_bbox(c(xmin=-126, xmax=-123, ymin=44, ymax=48.5)), n=c(10,40), crs = "WGS84")
-# grid <- sf::st_transform(grid, crs = UTM_zone_10_crs)
-# strait <- st_make_grid( st_bbox(c(xmin=-124.5, xmax=-123, ymin=47.9375, ymax=48.5)), n=c(5,5), crs = "WGS84")
-# strait <- sf::st_transform(strait, crs = UTM_zone_10_crs)
-# st_difference(grid, strait) -> survey_grid # remove strait of Juan de Fuca
-# st_difference(survey_grid, US_west_coast_proj) -> survey_grid # remove land
-# st_as_sf(survey_grid) -> survey_grid_df # convert sfc_geometry to data.frame
-
-
-# mesh = fm_mesh_2d( st_coordinates(st_centroid(survey_grid_df)), 
-#                    plot.delay = NULL, 
-#                    refine = TRUE )
-
-# second attempt at a mesh
 inla_mesh <- fmesher::fm_mesh_2d_inla(
   loc = cbind(csyis$X, csyis$Y), # coordinates
   cutoff = 10 # minimum triangle edge length
@@ -401,6 +380,10 @@ mesh_sdmTMB <- make_mesh(csyis, xy_cols = c("X", "Y"), mesh = inla_mesh)
 # plot(csyis_mesh)
 plot(inla_mesh)
 plot(mesh_sdmTMB)
+
+png(here::here("figures", "mesh.png"), width=4, height=6, res=200, units="in")
+plot(mesh_sdmTMB)
+dev.off()
 # plot(mesh)
 # Let's use the inla mesh, it looks most reasonable (and very close to the default sdmTMB make_mesh one)
 ```
@@ -429,8 +412,8 @@ Where:
 
 
 ```{r fit-model1-TMB, eval = FALSE}
-compile(here::here("analysis", "jsoes_null_sdm_1.cpp"))
-dyn.load( dynlib(here::here("analysis", "jsoes_null_sdm_1")))
+compile(here::here("analysis", "jsoes_null_sdm.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_null_sdm")))
 
 Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
              "n_t" = length(unique(csyis$year)),
@@ -438,7 +421,7 @@ Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year),
 Params = list( "beta_t"=rep(0, length(unique(csyis$year))), "ln_tau"=0, "ln_kappa"=0, 
                "ln_phi" = 0, "finv_power" = 0, "omega_s"=rnorm(nrow(spde$c0)))
 null_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s"),
-                 DLL = "jsoes_null_sdm_1")
+                 DLL = "jsoes_null_sdm")
 
 # Optimize
 null_Opt = nlminb( start=null_Obj$par, obj=null_Obj$fn, grad=null_Obj$gr )
@@ -456,109 +439,6 @@ jsoes_null_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
                          spatiotemporal = "off",
                          family = tweedie(link = "log"))
 ```
-
-
-```{r plot-model-1-TMB, eval = FALSE}
-# Load Jim's sample_var() function
-source("/Users/markusmin/Documents/UW_courses/Spring_2024/FISH556/Spatio-temporal-models-for-ecologists-1.0.0/Shared_functions/sample_var.R")
-source("/Users/markusmin/Documents/UW_courses/Spring_2024/FISH556/Spatio-temporal-models-for-ecologists-1.0.0/Shared_functions/rmvnorm_prec.R")
-
-# making plotting grids
-
-# density
-# ln_d_gt = ifelse( report$ln_d_gt<max(report$ln_d_gt-log(1e3)), NA, report$ln_d_gt )
-ln_d_gt <- null_report$ln_d_gt
-grid_density = st_sf(st_as_sfc(survey_grid_df), ln_d_gt=ln_d_gt, crs=st_crs(survey_grid_df) )
-
-# let's confirm that the model is working how it should: Each year should have the same
-# spatial patterns, but a different intensity
-
-# Cool! Makes sense
-ggplot(grid_density) +
-  geom_sf(aes(fill = ln_d_gt.1))
-
-ggplot(grid_density) +
-  geom_sf(aes(fill = ln_d_gt.2))
-
-ggplot(grid_density) +
-  geom_sf(aes(fill = ln_d_gt.3))
-
-ggplot(grid_density) +
-  geom_sf(aes(fill = ln_d_gt.4))
-
-ggplot(grid_density) +
-  geom_sf(aes(fill = ln_d_gt.5))
-# standard error (currently not working)
-# SE_gt = sample_var( var_name="ln_d_gt", n_samples=500, obj=Obj, mu=Obj$env$last.par.best, prec=Opt$SD$jointPrecision )
-# SE_gt = ifelse( Report$ln_d_gt<max(Report$ln_d_gt-log(1e3)), NA, SE_gt )
-# grid_SE = st_sf(grid, SE_ln_d_gt=SE_gt, crs=st_crs(grid) )
-
-```
-
-```{r plot-model-1-sdmTMB}
-# For newdata, use the same survey_grid_df from above
-as.data.frame(st_coordinates(st_centroid(survey_grid_df))) -> predict_grid
-
-# add year column for each
-predict_grid %>% 
-  mutate(year = 1998) -> predict_grid_1998
-predict_grid %>% 
-  mutate(year = 1999) -> predict_grid_1999
-
-pred.jsoes_null_sdmTMB_1998 = predict(jsoes_null_sdmTMB, newdata = predict_grid_1998, return_tmb_object = FALSE)
-pred.jsoes_null_sdmTMB_1999 = predict(jsoes_null_sdmTMB, newdata = predict_grid_1999, return_tmb_object = FALSE)
-
-# This is a workaround to get it into the right format which I think (?) works...?
-grid_density_sdmTMB_1998 = st_sf(st_as_sfc(survey_grid_df), est=pred.jsoes_null_sdmTMB_1998$est, crs=st_crs(survey_grid_df) )
-grid_density_sdmTMB_1999 = st_sf(st_as_sfc(survey_grid_df), est=pred.jsoes_null_sdmTMB_1999$est, crs=st_crs(survey_grid_df) )
-
-
-
-# compare sdmTMB with bespoke TMB implementation
-# Plots:
-ggplot(grid_density_sdmTMB_1998) +
-  geom_sf(aes(fill = est))
-
-ggplot(grid_density_sdmTMB_1999) +
-  geom_sf(aes(fill = est))
-
-# ggplot(grid_density) +
-#   geom_sf(aes(fill = ln_d_gt.1))
-# 
-# ggplot(grid_density) +
-#   geom_sf(aes(fill = ln_d_gt.2))
-# Patterns look very similar - but not identical
-
-# Parameter estimates:
-jsoes_null_sdmTMB$sd_report
-tidy(jsoes_null_sdmTMB, conf.int = TRUE)
-tidy(jsoes_null_sdmTMB, "ran_pars", conf.int = TRUE)
-
-  # TMB model parameters: beta_t; ln_tau; ln_kappa; ln_phi; finv_power; omega_s
-
-
-# ggplot(pred.jsoes_null_sdmTMB,aes(x = X, y = Y, color = est))  +
-#   geom_raster() +
-#   ggtitle("Null model")
-```
-
-```{r model-diagnostics}
-csyis$null_resids <- residuals(jsoes_null_sdmTMB)
-qqnorm(csyis$null_resids)
-qqline(csyis$null_resids)
-
-ggplot(csyis, aes(X, Y, col = null_resids)) +
-  scale_colour_gradient2() +
-  geom_point() +
-  facet_wrap(~year) +
-  coord_fixed()
-
-ggplot(subset(csyis, year = 1998), aes(X, Y, col = null_resids)) +
-  scale_colour_gradient2() +
-  geom_point() +
-  coord_fixed()
-```
-
 
 The second model adds a term for a spatio-temporal variable, $\epsilon_{s,t}$.
 
@@ -585,8 +465,8 @@ However, because we are using the SPDE method to model a precision matrix for ou
 
 
 ```{r fit-model2-TMB, eval = FALSE}
-compile(here::here("analysis", "jsoes_st_sdm_3.cpp"))
-dyn.load( dynlib(here::here("analysis", "jsoes_st_sdm_3")))
+compile(here::here("analysis", "jsoes_st_sdm.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_st_sdm")))
 
 Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
              "n_t" = length(unique(csyis$year)),
@@ -598,7 +478,7 @@ Params = list( "beta_t"=rep(0, length(unique(csyis$year))),
                "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
 
 st_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st"),
-                 DLL = "jsoes_st_sdm_3")
+                 DLL = "jsoes_st_sdm")
 
 # Optimize
 st_Opt = nlminb( start=st_Obj$par, obj=st_Obj$fn, grad=st_Obj$gr )
@@ -703,22 +583,63 @@ tempac_Opt = nlminb( start=tempac_Obj$par, obj=tempac_Obj$fn, grad=tempac_Obj$gr
 tempac_report = tempac_Obj$report()
 ```
 
-```{r fit-model-4-sdmTMB}
+```{r fit-model-4-sdmTMB, eval = FALSE}
 # Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
-# jsoes_tempac_sdmTMB <- sdmTMB(n_per_km ~ 0,
-#                          data = csyis,
-#                          mesh = mesh_sdmTMB,
-#                          time = "year",
-#                          time_varying = ~ 0 + as.factor(year),
-#                          time_varying_type = "ar1",
-#                          spatial = "on",
-#                          spatiotemporal = "iid",
-#                          family = tweedie(link = "log"),
-#                          silent = FALSE)
+jsoes_tempac_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         time_varying = ~ 0 + as.factor(year),
+                         time_varying_type = "ar1",
+                         spatial = "on",
+                         spatiotemporal = "iid",
+                         family = tweedie(link = "log"),
+                         silent = FALSE)
+
+# This doesn't work - it runs the optimizer but then gives this error message:
+# Error in solve.default(h, g) : system is computationally singular: reciprocal condition number = 1.84191e-29
 ```
 
 The fifth model now models both the spatio-temporal variable, $\epsilon_{s,t}$, and the temporal main effect, $\beta_t$, as temporally autocorrelated processes.
 
+```{r fit-model5-TMB, eval = FALSE}
+compile(here::here("analysis", "jsoes_stac_tempac_sdm.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_stac_tempac_sdm")))
+
+Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
+             "n_t" = length(unique(csyis$year)),
+             "A_is"=A_is, "A_gs"=A_gs, "M0"=spde$c0, "M1"=spde$g1, "M2"=spde$g2 )
+Params = list( "beta_t"=rep(0, length(unique(csyis$year))), 
+               "ln_tau_omega"=0, "ln_tau_epsilon"=0,
+               "ln_kappa"=0, "logit_rhoB" = 0, "logit_rhoE" = 0, "ln_phi" = 0, 
+               "finv_power" = 0, "ln_sigmaB" = 0, "omega_s"=rnorm(nrow(spde$c0)),
+               "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
+
+stac_tempac_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st", "beta_t"),
+                 DLL = "jsoes_stac_tempac_sdm")
+
+# Optimize
+stac_tempac_Opt = nlminb( start=stac_tempac_Obj$par, obj=stac_tempac_Obj$fn, grad=stac_tempac_Obj$gr )
+# Opt$SD = sdreport( stac_tempac_Obj, bias.correct=TRUE )
+stac_tempac_report = stac_tempac_Obj$report()
+```
+
+```{r fit-model-5-sdmTMB, eval = FALSE}
+# Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
+jsoes_stac_tempac_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         time_varying = ~ 0 + as.factor(year),
+                         time_varying_type = "ar1",
+                         spatial = "on",
+                         spatiotemporal = "ar1",
+                         family = tweedie(link = "log"),
+                         silent = FALSE)
+
+# This doesn't work - it runs the optimizer but then gives this error message:
+# Error in solve.default(h, g) : system is computationally singular: reciprocal condition number = 1.63961e-31
+```
 
 ## Models without covariates: Cross-validation
 
@@ -728,11 +649,7 @@ The fifth model now models both the spatio-temporal variable, $\epsilon_{s,t}$, 
 library(future)
 plan(multisession, workers = 4)
 
-
-
 # Model 1: Null model
-sanity(jsoes_null_sdmTMB)
-AIC(jsoes_null_sdmTMB)
 jsoes_null_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year),
                          data = csyis,
                          mesh = mesh_sdmTMB,
@@ -744,8 +661,6 @@ jsoes_null_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year),
 
 
 # Model 2: Spatiotemporal, IID
-sanity(jsoes_st_sdmTMB)
-AIC(jsoes_st_sdmTMB)
 jsoes_st_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year),
                          data = csyis,
                          mesh = mesh_sdmTMB,
@@ -757,12 +672,25 @@ jsoes_st_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year),
 
 
 # Model 3: Spatiotemporal, AR1
-sanity(jsoes_stac_sdmTMB)
+jsoes_stac_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year),
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "ar1",
+                         family = tweedie(link = "log"),
+                         k_folds = 4)
+
+# Compare models
+AIC(jsoes_null_sdmTMB)
+AIC(jsoes_st_sdmTMB)
 AIC(jsoes_stac_sdmTMB)
 
 
-# Model 4: Spatiotemporal, IID + AR1 for temporal main effect
 
+jsoes_null_sdmTMB_cv$sum_loglik
+jsoes_st_sdmTMB_cv$sum_loglik
+jsoes_stac_sdmTMB_cv$sum_loglik
 
 
 ```
@@ -904,7 +832,7 @@ round(mean(jsoes$julian_day))
 
 
 
-Based on our model selection process for the selection of spatial and temporal effects, we have now added covariates into our best model (spatial effect, spatiotemporal random fields that are IID)s.
+Based on our model selection process for the selection of spatial and temporal effects, we have now added covariates into our best model (spatial effect, spatiotemporal random fields that are AR1).
 
 
 $$
@@ -1037,8 +965,8 @@ hist(csyis$dist_shore_scaled)
 summary(csyis$SST_scaled)
 summary(csyis$dist_shore_scaled)
 
-compile(here::here("analysis", "jsoes_st_cov_sdm_1.cpp"))
-dyn.load( dynlib(here::here("analysis", "jsoes_st_cov_sdm_1")))
+compile(here::here("analysis", "jsoes_st_cov_sdm.cpp"))
+dyn.load( dynlib(here::here("analysis", "jsoes_st_cov_sdm")))
 
 Data = list( "D_i"= csyis$n_per_km, "t_i" = csyis$year - min(csyis$year), 
              "temp_i" = csyis$SST_scaled, "dist_i" = csyis$dist_shore_scaled,
@@ -1053,7 +981,7 @@ Params = list( "beta_t"=rep(0, length(unique(csyis$year))),
                "epsilon_st"=matrix(0, nrow=nrow(spde$c0), ncol=Data$n_t))
 
 st_cov_Obj = MakeADFun( data=Data, parameters=Params, random= c("omega_s", "epsilon_st"),
-                 DLL = "jsoes_st_cov_sdm_1")
+                 DLL = "jsoes_st_cov_sdm")
 
 
 # Optimize
@@ -1066,71 +994,109 @@ st_cov_report = st_cov_Obj$report()
 # Fit sdmTMB with effect of year and effect of space and spatio-temporal effect
 
 ### CHINOOK INTERIOR SPRING
-csyis_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
+csyis_stac_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
                          data = csyis,
                          mesh = mesh_sdmTMB,
                          time = "year",
                          spatial = "on",
-                         spatiotemporal = "iid",
+                         spatiotemporal = "ar1",
                          family = tweedie(link = "log"))
 
-sanity(csyis_st_cov_sdmTMB)
-AIC(csyis_st_cov_sdmTMB)
+sanity(csyis_stac_cov_sdmTMB)
+AIC(csyis_stac_cov_sdmTMB)
 
+
+# check for alignment
+csyis_stac_cov_sdmTMB
+st_cov_report$beta_t
+st_cov_report$beta_dist
+st_cov_report$beta_temp
+# the same! Now fit for other species
+
+# Cross validation for comparison with other models
+set.seed(556)
+csyis_stac_cov_sdmTMB_cv <- sdmTMB_cv(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
+                         data = csyis,
+                         mesh = mesh_sdmTMB,
+                         time = "year",
+                         spatial = "on",
+                         spatiotemporal = "ar1",
+                         family = tweedie(link = "log"),
+                         k_folds = 4)
+
+csyis_stac_cov_sdmTMB_cv$sum_loglik
 
 
 ### COHO YEARLINGS
-coho_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
+coho_stac_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
                          data = coho,
                          mesh = mesh_sdmTMB,
                          time = "year",
                          spatial = "on",
-                         spatiotemporal = "iid",
+                         spatiotemporal = "ar1",
                          family = tweedie(link = "log"))
 
-sanity(coho_st_cov_sdmTMB)
-AIC(coho_st_cov_sdmTMB)
+sanity(coho_stac_cov_sdmTMB)
+AIC(coho_stac_cov_sdmTMB)
 
 
 
 ### WATER JELLIES
-water_jellies_st_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
+water_jellies_stac_cov_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + SST_scaled + dist_shore_scaled,
                          data = water_jellies,
                          mesh = mesh_sdmTMB,
                          time = "year",
                          spatial = "on",
-                         spatiotemporal = "iid",
+                         spatiotemporal = "ar1",
                          family = tweedie(link = "log"))
 
-sanity(water_jellies_st_cov_sdmTMB)
-AIC(water_jellies_st_cov_sdmTMB)
-
-# check for alignment
-# Not the same. I truly have no idea why...
-csyis_st_cov_sdmTMB
-st_cov_report$beta_t
-st_cov_report$beta_dist
-st_cov_report$beta_temp
-
-# Maybe we can see a difference in number of parameters?
-csyis_st_cov_sdmTMB$tmb_params
+sanity(water_jellies_stac_cov_sdmTMB)
+AIC(water_jellies_stac_cov_sdmTMB)
 
 
 # Fit another model, with splines for depth and distance
-jsoes_st_cov_splines_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + s(SST_scaled) + s(dist_shore_scaled),
+jsoes_stac_cov_splines_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year) + s(SST_scaled) + s(dist_shore_scaled),
                          data = csyis,
                          mesh = mesh_sdmTMB,
                          time = "year",
                          spatial = "on",
-                         spatiotemporal = "iid",
+                         spatiotemporal = "ar1",
                          family = tweedie(link = "log"))
 
-sanity(jsoes_st_cov_splines_sdmTMB)
-AIC(jsoes_st_cov_splines_sdmTMB)
+sanity(jsoes_stac_cov_splines_sdmTMB)
+AIC(jsoes_stac_cov_splines_sdmTMB)
 # doesn't pass sanity check, and it looks like smooth term for distance has a SD that went to zero
 # and the smooth term for SST has a SD that got really big
 
 ```
+
+
+```{r export-model-tables}
+
+csyis_model_selection_table <- data.frame(model = c("Null", "Spatiotemporal", "Spatiotemporal, AR1", "Spatiotemporal, AR1 + SST + Dist"),
+                                          AIC = c(AIC(jsoes_null_sdmTMB), AIC(jsoes_st_sdmTMB), 
+                                                  AIC(jsoes_stac_sdmTMB), AIC(csyis_stac_cov_sdmTMB)),
+                                          cv_total_log_likelihood = c(jsoes_null_sdmTMB_cv$sum_loglik, jsoes_st_sdmTMB_cv$sum_loglik, 
+                                                                      jsoes_stac_sdmTMB_cv$sum_loglik, csyis_stac_cov_sdmTMB_cv$sum_loglik))
+
+write.csv(csyis_model_selection_table, here::here("figures", "csyis_model_selection_table.csv"))
+
+csyis_stac_cov_sdmTMB
+coho_stac_cov_sdmTMB
+water_jellies_stac_cov_sdmTMB
+
+model_parameters_table <- data.frame(species = c("Yearling Chinook", 
+                                                 "Yearling Coho",
+                                                 "Water jellies"),
+                                     SST_est = c(-0.23, 0.31, -0.07),
+                                     SST_SE = c(0.13, 0.09, 0.1),
+                                     dist_shore_est = c(-0.25, -0.55, -0.67),
+                                     dist_shore_SE = c(0.23, 0.15, 0.15))
+
+
+write.csv(model_parameters_table, here::here("figures", "model_parameters_table.csv"))
+```
+
 
 
 ```{r predict-with-covariates}
@@ -1139,9 +1105,9 @@ survey_predict_grid
 which(is.na(survey_predict_grid))
 
 
-csyis_st_cov_sdmTMB_pred <- predict(csyis_st_cov_sdmTMB, newdata = survey_predict_grid)
-coho_st_cov_sdmTMB_pred <- predict(coho_st_cov_sdmTMB, newdata = survey_predict_grid)
-water_jellies_st_cov_sdmTMB_pred <- predict(water_jellies_st_cov_sdmTMB, newdata = survey_predict_grid)
+csyis_stac_cov_sdmTMB_pred <- predict(csyis_stac_cov_sdmTMB, newdata = survey_predict_grid)
+coho_stac_cov_sdmTMB_pred <- predict(coho_stac_cov_sdmTMB, newdata = survey_predict_grid)
+water_jellies_stac_cov_sdmTMB_pred <- predict(water_jellies_stac_cov_sdmTMB, newdata = survey_predict_grid)
 
 # plot the predictions
 plot_density_predictions <- function(predictions){
@@ -1151,17 +1117,19 @@ density_predictions_map <- survey_area_basemap_km +
             width = 7, height = 7) +
   scale_fill_viridis_c( trans = "sqrt",
                         # trim extreme high values to make spatial variation more visible
-                        na.value = "yellow", limits = c(0, quantile(exp(predictions$est), 0.995))) +
+                        na.value = "yellow", limits = c(0, quantile(exp(predictions$est), 0.995)),
+                        name = "Predicted density\n(n per km)") +
   facet_wrap(~year, nrow = 3) +
-  theme_light()
+  theme(axis.text = element_blank(),
+        legend.position = c(0.95, 0.1))
 
 return(density_predictions_map)
   
 }
 
-csyis_prediction_map <- plot_density_predictions(predictions = csyis_st_cov_sdmTMB_pred)
-coho_prediction_map <- plot_density_predictions(predictions = coho_st_cov_sdmTMB_pred)
-water_jellies_prediction_map <- plot_density_predictions(predictions = water_jellies_st_cov_sdmTMB_pred)
+csyis_prediction_map <- plot_density_predictions(predictions = csyis_stac_cov_sdmTMB_pred)
+coho_prediction_map <- plot_density_predictions(predictions = coho_stac_cov_sdmTMB_pred)
+water_jellies_prediction_map <- plot_density_predictions(predictions = water_jellies_stac_cov_sdmTMB_pred)
 
 
 
@@ -1171,18 +1139,36 @@ ggsave(here::here("figures", "water_jellies_prediction_map.png"), plot = water_j
 ```
 
 
-```{r covariate_model_diagnostics}
-csyis$cov_resids <- residuals(csyis_st_cov_sdmTMB)
-qqnorm(csyis$cov_resids)
-qqline(csyis$cov_resids)
+```{r model_diagnostics}
+csyis$model_residuals <- residuals(csyis_stac_cov_sdmTMB)
 
-csyis_st_cov_sdmTMB_residuals_plot <- ggplot(csyis, aes(X, Y, col = cov_resids)) +
+csyis_stac_cov_sdmTMB_residuals_plot <- survey_area_basemap_km +
+  geom_point(data = csyis, aes(X, Y, col = model_residuals)) +
   scale_colour_gradient2() +
-  geom_point() +
-  facet_wrap(~year) +
-  coord_fixed()
+  facet_wrap(~year, nrow = 3) +
+  theme(legend.position = c(0.95, 0.1))
 
-ggsave(here::here("figures", "csyis_st_cov_sdmTMB_residuals_plots.png"), plot = csyis_st_cov_sdmTMB_residuals_plot, height = 30, width = 25)
+ggsave(here::here("figures", "csyis_stac_cov_sdmTMB_residuals_plots.png"), plot = csyis_stac_cov_sdmTMB_residuals_plot, height = 12, width = 17)
+
+coho$model_residuals <- residuals(coho_stac_cov_sdmTMB)
+
+coho_stac_cov_sdmTMB_residuals_plot <- survey_area_basemap_km +
+  geom_point(data = coho, aes(X, Y, col = model_residuals)) +
+  scale_colour_gradient2() +
+  facet_wrap(~year, nrow = 3) +
+  theme(legend.position = c(0.95, 0.1))
+
+ggsave(here::here("figures", "coho_stac_cov_sdmTMB_residuals_plots.png"), plot = coho_stac_cov_sdmTMB_residuals_plot, height = 12, width = 17)
+
+water_jellies$model_residuals <- residuals(water_jellies_stac_cov_sdmTMB)
+
+water_jellies_stac_cov_sdmTMB_residuals_plot <- survey_area_basemap_km +
+  geom_point(data = water_jellies, aes(X, Y, col = model_residuals)) +
+  scale_colour_gradient2() +
+  facet_wrap(~year, nrow = 3) +
+  theme(legend.position = c(0.95, 0.1))
+
+ggsave(here::here("figures", "water_jellies_stac_cov_sdmTMB_residuals_plots.png"), plot = water_jellies_stac_cov_sdmTMB_residuals_plot, height = 12, width = 17)
 ```
 
 
@@ -1197,13 +1183,13 @@ ggsave(here::here("figures", "csyis_st_cov_sdmTMB_residuals_plots.png"), plot = 
 
 # get predictions, with return_tmb_object = TRUE
 
-csyis_st_cov_sdmTMB_pred_TMB <- predict(csyis_st_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
-coho_st_cov_sdmTMB_pred_TMB <- predict(coho_st_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
-water_jellies_st_cov_sdmTMB_pred_TMB <- predict(water_jellies_st_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
+csyis_stac_cov_sdmTMB_pred_TMB <- predict(csyis_stac_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
+coho_stac_cov_sdmTMB_pred_TMB <- predict(coho_stac_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
+water_jellies_stac_cov_sdmTMB_pred_TMB <- predict(water_jellies_stac_cov_sdmTMB, newdata = survey_predict_grid, return_tmb_object = TRUE)
 
-csyis_index_of_abundance <- get_index(csyis_st_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
-coho_index_of_abundance <- get_index(coho_st_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
-water_jellies_index_of_abundance <- get_index(water_jellies_st_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
+csyis_index_of_abundance <- get_index(csyis_stac_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
+coho_index_of_abundance <- get_index(coho_stac_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
+water_jellies_index_of_abundance <- get_index(water_jellies_stac_cov_sdmTMB_pred_TMB, area = 24, bias_correct = TRUE)
 
 ```
 
@@ -1271,9 +1257,19 @@ collocation_metric <- function(grid1, grid2){
   
 }
 
-competition_index <- collocation_metric(grid1 = csyis_st_cov_sdmTMB_pred, grid2 = coho_st_cov_sdmTMB_pred)
-predator_prey_index <- collocation_metric(grid1 = csyis_st_cov_sdmTMB_pred, grid2 = water_jellies_st_cov_sdmTMB_pred)
+competition_index <- collocation_metric(grid1 = csyis_stac_cov_sdmTMB_pred, grid2 = coho_stac_cov_sdmTMB_pred)
+predator_prey_index <- collocation_metric(grid1 = csyis_stac_cov_sdmTMB_pred, grid2 = water_jellies_stac_cov_sdmTMB_pred)
 ```
 
 
+```{r plot_overlap}
+competition_overlap_plot <- ggplot(competition_index, aes(year, index)) + geom_line() +
+  xlab('Year') + ylab('Collocation Index')
 
+predator_prey_overlap_plot <- ggplot(predator_prey_index, aes(year, index)) + geom_line() +
+  xlab('Year') + ylab('Collocation Index')
+
+
+ggsave(here::here("figures", "csyis_coho_overlap_plot.png"), plot = competition_overlap_plot, height = 6, width = 8)
+ggsave(here::here("figures", "csyis_water_jellies_overlap_plot.png"), plot = predator_prey_overlap_plot, height = 6, width = 8)
+```
