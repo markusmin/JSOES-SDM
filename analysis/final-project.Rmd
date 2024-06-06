@@ -1235,8 +1235,17 @@ collocation_metric <- function(grid1, grid2){
     mutate(est1 = exp(est1)) %>% 
     mutate(est2 = exp(est2)) -> combined_grid
   
+  # get the total number of predators and prey
+  total_est1 <- sum(combined_grid$est1)
+  total_est2 <- sum(combined_grid$est2)
+  
+  # get proportions of the total number
   combined_grid %>% 
-    mutate(predxprey = est1 * est2) -> combined_grid
+    mutate(p_est1 = est1/total_est1) %>% 
+    mutate(p_est2 = est2/total_est2) -> combined_grid
+  
+  combined_grid %>% 
+    mutate(predxprey = p_est1 * p_est2) -> combined_grid
   
   # calculate for each year
   combined_grid %>% 
@@ -1245,7 +1254,7 @@ collocation_metric <- function(grid1, grid2){
   
   combined_grid %>% 
     group_by(year) %>% 
-    summarise(denominator = sqrt(sum(est1^2)*sum(est2^2))) -> denominator_by_year
+    summarise(denominator = sqrt(sum(p_est1^2)*sum(p_est2^2))) -> denominator_by_year
   
   numerator_by_year %>% 
     left_join(denominator_by_year, by = "year") %>% 
