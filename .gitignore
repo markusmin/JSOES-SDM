@@ -9,3 +9,6 @@ google_drive/
 # ignore cpp compilation files (they're big)
 *.so
 *.o
+
+# ignore the data files to keep private
+*.xlsx
