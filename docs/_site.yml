@@ -3,7 +3,9 @@ output_dir: "."
 navbar:
   title: "Northern California Current Food Web"
   left:
-    - text: "Bongo"
+    - text: "Project Description"
+      href: project_description.html   
+    - text: "JSOES Bongo"
       menu:  
       - text: "Exploratory Analysis"
         href: bongo_exploratory.html   

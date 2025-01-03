@@ -1,0 +1,22 @@
+---
+title: "Project Description"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output:
+  html_document
+---
+
+## Potential projects
+
+#### 1) Can we used derived quantities from spatiotemporal models to uncover mechanistic relationships that explain marine survival as some function of the distribution and abundance of juvenile salmon, their predators and prey, and their environment?
+
+Overview of methods:
+
+1. For each taxon, fit a spatiotemporal model to model the abundance and distribution in the JSOES survey area
+2. Estimate the degree of overlap between the distributions of different species in each year
+3. Fit a model using some metric of survival or adult returns as the response variable and metrics of overlap (in addition to other factors that we already know are important for survival, e.g.,outmigration timing) as predictors. This statistical model could be written as an integrated model in TMB that estimates SAR (from PIT tag data) as a function of our overlap metrics and other predictors.
+
+
+#### 2) How does the Northern California Current Ecosystem respond to environmental variability, as mediated through food web interactions?
+
+The approach used for this question would be quite similar to the first question, except that the analysis would be on the scale of the ecological community. The effect of environmental covariates on species distributions and abundance would be estimated along with interaction strengths between different members of the community using a food web model. Salmon would still be central to this analysis and many similar insights would be gleaned regarding marine survival, but the results would be applicable to ecosystem-based management.

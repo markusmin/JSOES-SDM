@@ -6,6 +6,6 @@ output:
   html_document
 ---
 
-## Analysis updates for Columbia Basin Steelhead modeling project
+## Analysis updates for NCC Food Web project
 
 This website contains analysis and ideas for an analysis of ecological interactions in the Northern California Current, as estimated from long time series.
