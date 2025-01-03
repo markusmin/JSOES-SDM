@@ -1,0 +1,15 @@
+name: "Northern California Current Food Web"
+output_dir: "."
+navbar:
+  title: "Northern California Current Food Web"
+  left:
+    - text: "Bongo"
+      menu:  
+      - text: "Exploratory Analysis"
+        href: bongo_exploratory.html   
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    toc_depth: 3
