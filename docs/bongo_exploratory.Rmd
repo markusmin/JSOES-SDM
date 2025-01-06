@@ -6,6 +6,91 @@ output:
   html_document
 ---
 
-## Bongo data
+This page contain exploratory analysis for the Bongo net data from JSOES.
 
-This page will contain exploratory analysis for the Bongo net data from JSOES.
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+#### Dataset description
+
+
+#### Exploratory analysis
+
+```{r load_libraries_data}
+library(readxl)
+library(here)
+library(janitor)
+library(tidyverse)
+library(kableExtra)
+
+bongo <- clean_names(read_excel(here::here("Data", "Markus_Min_Plankton Density for Trophic Summary Query_10.11.24.xlsx")))
+
+trophic_groupings <- clean_names(read_excel(here::here("Data", "Markus_Min_Trophic Groupings_10.2.24.xlsx")))
+
+# change genus species to be consistent across these two files, and usual 
+# latin name and common name capitalization
+bongo$genus_species <- str_to_sentence(bongo$genus_species)
+trophic_groupings$genus_species <- str_to_sentence(trophic_groupings$genus_species)
+trophic_groupings$common_name <- str_to_title(trophic_groupings$common_name)
+
+trophic_groupings %>% 
+  dplyr::select(genus_species, common_name) %>% 
+  filter(!(duplicated(genus_species))) -> common_name_df
+
+
+# add common name
+bongo %>% left_join(common_name_df, by = "genus_species") -> bongo
+
+# get all unique tows
+bongo %>% 
+  mutate(sampleID = paste0(station, "_", sample_date)) %>% 
+  dplyr::select(-c(genus_species, life_history_stage, id_code, count, sum_of_density_number_m3)) %>% 
+  relocate(sampleID) %>% 
+  filter(!(duplicated(sampleID))) -> bongo_tows
+
+# create a version of this where we collapse all life history stages together
+bongo %>% 
+  mutate(sampleID = paste0(station, "_", sample_date)) %>% 
+  dplyr::select(sampleID, genus_species, count, sum_of_density_number_m3) %>% 
+  group_by(sampleID, genus_species) %>% 
+  summarise_if(is.numeric, sum) -> bongo_LH_collapse
+
+bongo_LH_collapse %>% 
+  left_join(bongo_tows, by = "sampleID") %>% 
+  ungroup() -> bongo_LH_collapse
+```
+
+```{r common_taxa}
+## total density
+bongo %>% 
+  group_by(genus_species) %>% 
+  summarise(total_density = sum(sum_of_density_number_m3)) %>% 
+  arrange(desc(total_density)) %>% 
+  left_join(common_name_df, by = "genus_species") %>% 
+  relocate(common_name, .after = "genus_species") -> bongo_density_sums
+
+bongo_density_sums[1:10,] %>% 
+  mutate(total_density = round(total_density, 0)) %>% 
+  kbl(caption = "Top ten taxa by sum of density.") %>% 
+  kable_styling(latex_options = "HOLD_position")
+
+## frequency of occurrence
+
+# get count of each genus_species
+bongo_LH_collapse %>% 
+  count(genus_species) %>% 
+  arrange(desc(n)) %>% 
+  mutate(prop_samples = n/nrow(bongo_tows)) %>% 
+  left_join(common_name_df, by = "genus_species") %>% 
+  relocate(common_name, .after = "genus_species") -> bongo_freq_occ
+
+bongo_freq_occ[1:10, c("genus_species", "common_name", "prop_samples")] %>% 
+  mutate(prop_samples = round(prop_samples, 2)) %>% 
+  kbl(caption = "Top ten taxa by frequency of occurrence.") %>% 
+  kable_styling(latex_options = "HOLD_position")
+
+```
+
+
+

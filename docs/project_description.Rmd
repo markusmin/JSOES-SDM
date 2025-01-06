@@ -2,9 +2,25 @@
 title: "Project Description"
 author: "Markus Min"
 date: "`r Sys.Date()`"
+bibliography: "JSOES.bib"
+csl: "ecology.csl"
 output:
   html_document
 ---
+
+## Background
+
+This is a website to be shared with data owners, who will need to be convinced that this project is worth their time. Need to answer the following questions:
+- Why is this question important?
+- Why is this analysis timely (why now?)
+- What's new and interesting about our methods? 1) Using SDMs, whereas past studies typically just looked by station; 2) we're trying to combine datasets, most past analyses are isolated to their surveys. Some studies (e.g., Friedman et al. 2018) combine RREAS and PRS surveys, since they have similar sampling methods and target taxa, but are in different spatial areas. This study is different because we look at multiple surveys conducted in the same area, which gives us the advantage of looking at taxa across trophic levels.
+
+
+The Northern California Current
+
+
+
+
 
 ## Potential projects
 
@@ -20,3 +36,7 @@ Overview of methods:
 #### 2) How does the Northern California Current Ecosystem respond to environmental variability, as mediated through food web interactions?
 
 The approach used for this question would be quite similar to the first question, except that the analysis would be on the scale of the ecological community. The effect of environmental covariates on species distributions and abundance would be estimated along with interaction strengths between different members of the community using a food web model. Salmon would still be central to this analysis and many similar insights would be gleaned regarding marine survival, but the results would be applicable to ecosystem-based management.
+
+## References 
+
+<br>
