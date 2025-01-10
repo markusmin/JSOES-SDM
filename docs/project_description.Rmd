@@ -10,13 +10,50 @@ output:
 
 ## Background
 
+Marine survival is highly variable, both between stocks and between years. Marine survival of Columbia River Basin salmonids has been repeatedly studied.
+
+However, these studies only looked at ecological information at a very coarse, or spatially coherent scale. PDO and NPGO are basin-scale; we know from tagging studies that these stocks use a small portion of the Northeast Pacific.
+
+Studies of marine survival in Snake River spring/summer [@Miller2014] and Columbia River spring Chinook salmon [@Tomaro2012] found stronger evidence for the importance of early growth than regional productivity. However, the metrics used in these studies were spatially unresolved, as dates of biological or physical spring transition dates were used to measure temporal overlap between salmon and prey, and indices of copepod productivity from the Newport Hydrographic Line were used as metrics of prey quality. 
+
+Species distribution models are an opportunity to study spatiotemporal overlap between juvenile salmonids, their predators, competitors, and prey.
+
+
+The JSOES survey collects a lot of key information, and uses genetic methods to identify origin and rear type. It's a great data source to start with for unraveling this problem.
+
+However, the JSOES survey provides insights into only certain elements of the Northern California Current food web. Other datasets need to be integrated to be able to take a holistic look at marine survival.
+
+
+
 This is a website to be shared with data owners, who will need to be convinced that this project is worth their time. Need to answer the following questions:
 - Why is this question important?
 - Why is this analysis timely (why now?)
 - What's new and interesting about our methods? 1) Using SDMs, whereas past studies typically just looked by station; 2) we're trying to combine datasets, most past analyses are isolated to their surveys. Some studies (e.g., Friedman et al. 2018) combine RREAS and PRS surveys, since they have similar sampling methods and target taxa, but are in different spatial areas. This study is different because we look at multiple surveys conducted in the same area, which gives us the advantage of looking at taxa across trophic levels.
 
+In relation to a theme that I frequently think about: theory (Wells et al. 2016?) suggests certain mechanisms for recruitment, but studies so far (Miller et al. 2014 and Tomaro et al. 2012, for example) didn't find evidence for those mechanisms. BUT - those studies likely didn't have the ability to really detect these effects. So we can't falsify that hypothesis.
 
 The Northern California Current
+
+Some key evidence points to overlap between juvenile salmon and their prey as being crucial for determining adult returns. 
+
+Scheuerell et al. (2009): 
+
+For both species, juveniles migrating from early to mid-May survived 4–50 times greater than
+those migrating in mid-June. As expected, however, the estimated peak in survival varied among
+years, presumably reﬂecting interannual variation in the nearshore physical environment and tro-
+phic dynamics that aﬀect salmon during the critical juvenile life stage.
+
+What do we know about marine survival? What is our conceptual model of how the NCC food web works, especially as it pertains to juvenile salmonids (ad therefore, their marine survival)?
+
+
+What is the structure of the NCC food web? 
+
+How much do CPS move throughout the year? How representative of their distributions are snapshots in July (CCES), for example?
+
+Where is the krill data from the CCES? I don't see publications about it?
+
+DAG
+- add citations for each of the links in the food web!
 
 
 

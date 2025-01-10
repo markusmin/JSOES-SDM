@@ -6,7 +6,7 @@ output:
   html_document
 ---
 
-This page contain exploratory analysis for the Bongo net data from JSOES.
+This page contains exploratory analysis for the Bongo net data from JSOES.
 
 ```{r, echo = FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
@@ -92,5 +92,15 @@ bongo_freq_occ[1:10, c("genus_species", "common_name", "prop_samples")] %>%
 
 ```
 
+```{r sampling_resolution}
+
+# temporal
+# it's every year, June only
+ggplot(bongo_tows, aes(x = sample_date)) +
+  geom_bar()
+
+
+
+```
 
 

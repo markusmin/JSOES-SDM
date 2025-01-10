@@ -5,10 +5,24 @@ navbar:
   left:
     - text: "Project Description"
       href: project_description.html   
+    - text: "Survey descriptions"
+      menu:  
+      - text: "JSOES_survey_description"
+        href: JSOES_survey_description.html
+      - text: "CCES_survey_description"
+        href: CCES_survey_description.html
+      - text: "PRS_survey_description"
+        href: PRS_survey_description.html
+      - text: "Hake_survey_description"
+        href: Hake_survey_description.html
     - text: "JSOES Bongo"
       menu:  
       - text: "Exploratory Analysis"
         href: bongo_exploratory.html   
+    - text: "JSOES Trawl"
+      menu:  
+      - text: "Exploratory Analysis"
+        href: jsoes_trawl_exploratory.html   
 output:
   html_document:
     theme: flatly
