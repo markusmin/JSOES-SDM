@@ -1,11 +1,11 @@
-name: "Northern California Current Food Web"
+name: "Spatiotemporal predictors of juvenile salmonid marine survival"
 output_dir: "."
 navbar:
-  title: "Northern California Current Food Web"
+  title: "Home"
   left:
     - text: "Project Description"
       href: project_description.html   
-    - text: "Survey descriptions"
+    - text: "Survey Descriptions"
       menu:  
       - text: "JSOES"
         href: jsoes_survey_description.html
