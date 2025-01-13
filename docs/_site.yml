@@ -8,24 +8,22 @@ navbar:
     - text: "Survey descriptions"
       menu:  
       - text: "JSOES"
-        href: JSOES_survey_description.html
+        href: jsoes_survey_description.html
       - text: "CCES"
         href: CCES_survey_description.html
       - text: "PRS"
         href: PRS_survey_description.html
       - text: "Hake"
         href: hake_survey_description.html
-    - text: "JSOES Bongo"
+    - text: "Exploratory Analyses"
       menu:  
-      - text: "Exploratory Analysis"
+      - text: "JSOES Bongo"
         href: bongo_exploratory.html   
-    - text: "JSOES Trawl"
-      menu:  
-      - text: "Exploratory Analysis"
+      - text: "JSOES Trawl"
         href: jsoes_trawl_exploratory.html   
 output:
   html_document:
     theme: flatly
     toc: true
-    toc_float: false
+    toc_float: true
     toc_depth: 3
