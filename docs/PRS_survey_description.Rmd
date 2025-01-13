@@ -1,5 +1,5 @@
 ---
-title: "PRS_survey_description"
+title: "PRS Survey Description"
 author: "Markus Min"
 date: "`r Sys.Date()`"
 bibliography: "JSOES.bib"
@@ -30,36 +30,27 @@ The PRS survey uses multiple sampling methods:
 
 ### Spatial and temporal extent
 
-#### Spatial
+The PRS began in 2001 as a collaboration between NOAA and the Paciﬁc Whiting Conservation Cooperative (PWCC) and helped complement survey eﬀort by the RREAS oﬀ California. The PWCC surveys sampled at non-fixed locations centered on the shelf break because of the belief that that was where YOY hake were most likely to occur. The PWCC surveys covered the area from Newport, OR to Point Conception in 2001, 2002, and 2003. In 2004,  the spatial coverage was expanded to just north of the Columbia River, and in 2005, was again expanded to just south of Cape Flattery [@Sakuma2006]. The last year of the PWCC survey was 2009.
 
-The pre-recruit survey samples from approximately Brookings, OR to the mouth of the Columbia River.
-
+Since 2011, the PRS has been operated by the NWFSC and coordinates directly with the RREAS. The area covered by the PRS includes the Oregon and Washington coasts from approximately Brookings, OR to the mouth of the Columbia River.
 
 ![Map of the PRS survey extent from @Brodeur2019.](survey_images/Brodeur_2019_PRS_design.png)
 
 ![Map of the combined PWCC/RREAS survey extent in 2005 from @Sakuma2006.](survey_images/Sakuma_2006_PWCC_design.png)
 
-How do we see the full PWCC extent? The citations provided in Gallo et al. 2022 don't talk about the full survey.
-
-<br>
-
-#### Temporal
-
-The PRS began in 2001 as a collaboration between NOAA and the Paciﬁc Whiting Conservation Cooperative (PWCC) and helped complement survey eﬀort by the RREAS oﬀ California. The PWCC surveys sampled at non-fixed locations centered on the shelf break because of the belief that that was where YOY hake were most likely to occur. The PWCC surveys covered the area from Newport, OR to Point Conception in 2001, 2002, and 2003. In 2004,  the spatial coverage was expanded to just north of the Columbia River, and in 2005, was again expanded to just south of Cape Flattery [@Sakuma2006]. The last year of the PWCC survey was 2009.
-
-Since 2011, the PRS has been operated by the NWFSC and coordinates directly with the RREAS. The area covered by the PRS includes the Oregon and Washington coasts from approximately Brookings, OR to the mouth of the Columbia River.
 
 <br>
 
 ### Core taxa
 
-- Pacifc Sardine *Sardinops sagax*
-- Northern Anchovy *Engraulis mordax*
-- Pacifc Herring *Clupea pallasii*
-- Pacifc Round Herring *Etrumeus acuminatus*
-- Pacifc Mackerel *Scomber japonicus*
-- Jack Mackerel *Trachurus symmetricus*
-- Krill (euphausiid spp.)
-
-
+- Euphausiids (>95% of total catch)
+- Pink Shrimp *Pandalus jordani*
+- Glass shrimp *Sergestes similis*
+- Gelatinous zooplankton (e.g., tunicates and hydrozoans)
+- Cephalopods (e.g., black-tip squid *Abraliopsis felis* and clawed armhook squid *Gonatus onyx*)
+- Various teleost fishes, including:
+  - Mesopelagic lanternfish species (e.g., *Stenobrachius leucopsarus* and *Tarletonbeania crenularis*)
+  - age-0 Pacific Hake *Merluccius productus*
+  - Juvenile rockfishes *Sebastes* spp.
+  - Northern anchovy *Engraulis mordax*
 

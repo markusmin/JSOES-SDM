@@ -7,14 +7,14 @@ navbar:
       href: project_description.html   
     - text: "Survey descriptions"
       menu:  
-      - text: "JSOES_survey_description"
+      - text: "JSOES"
         href: JSOES_survey_description.html
-      - text: "CCES_survey_description"
+      - text: "CCES"
         href: CCES_survey_description.html
-      - text: "PRS_survey_description"
+      - text: "PRS"
         href: PRS_survey_description.html
-      - text: "Hake_survey_description"
-        href: Hake_survey_description.html
+      - text: "Hake"
+        href: hake_survey_description.html
     - text: "JSOES Bongo"
       menu:  
       - text: "Exploratory Analysis"

@@ -1,0 +1,37 @@
+---
+title: "Hake Survey Description"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+bibliography: "JSOES.bib"
+csl: "ecology.csl"
+output:
+  html_document
+---
+
+## Survey objectives and background
+The objectives of the Joint U.S.-Canada Integrated Ecosystem and Pacific Hake Acoustic Trawl Survey (Hake Survey) are to:
+
+
+
+<br>
+
+### Survey methodology
+
+
+<br>
+
+### Spatial and temporal extent
+
+
+
+![Map of the PRS survey extent from @Brodeur2019.](survey_images/Brodeur_2019_PRS_design.png)
+
+![Map of the combined PWCC/RREAS survey extent in 2005 from @Sakuma2006.](survey_images/Sakuma_2006_PWCC_design.png)
+
+
+<br>
+
+### Core taxa
+
+
+
