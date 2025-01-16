@@ -40,12 +40,14 @@ The two different sampling methods (Bongo nets for zooplankton and a Nordic 264 
 
 
 Bongo:
+
 - Euphausiids
 - Copepods
 - Various invertebrate larvae (e.g., barnacles and *Cancer*)
 
 
-Rope trawl:
+Trawl:
+
 - Subadult, yearling, and subyearling salmon (primarily Chinook and Coho)
 - Coastal pelagic species, such as Pacific sardine, Northern Anchovy, American Shad, various smelts, Jack Mackerel, and Pacific Herring
 - Gelatinous zooplankton, like water jellies

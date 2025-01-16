@@ -12,7 +12,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 This page contains exploratory analysis for the Bongo net data from JSOES.
 
 - What are the top taxa?
-- Composition of different years, spatial areas, individual tows in terms of taxa caught
+- Time series of mean density across survey area for top ten taxa
+- Map showing distribution of taxa
 - What is the variance of top taxa?
 - Distributional plots for top taxa
 - Spatial autocorrelation
