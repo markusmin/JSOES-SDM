@@ -57,6 +57,46 @@ DAG
 
 
 
+### Conceptual model of the Northern California Food Web
+
+The Northern California Current (NCC) is a highly productive upwelling ecosystem that is typically spatially defined as the portion of the California Current Ecosystem (CCE) between Vancouver Island, Canada, and Cape Mendocino, California [@Checkley2009]. 
+
+In the CCE, phytoplankton grow in response to coastal, wind-driven upwelling which brings nutrient-rich water to the surface. Large phytoplankton (diatoms) respond strongly to upwelling and make up the bulk of primary production and biomass [@Kudela2008].
+
+Grazers on phytoplankton include many different taxa. Microzooplankton are estimated to consume more than half of the primary productivity in coastal upwelling zones [@Calbet2004]. Microzooplankton make up a diverse group of small herbivores, including many protists, such as ciliates, dinoflagellates, and foraminiferans. In coastal upwelling systems like the CCE where the dominant phytoplankton are large diatoms, dinoflagellates are likely the dominant microzooplankton grazers due to their ability to ingest these long-chain phytoplankton [@Calbet2008]. Microzooplankton are often viewed as a trophic dead-end, where primary production ingested by microzooplankton is typically lost through multiple trophic transfers and remineralization instead of making its way up the food web [@Calbet2004]. However, they are also preyed upon by copepods, although copepods eat more phytoplankton in productive systems like the CCE [@Calbet2008].
+
+
+Decapods, 
+
+Contrasted with microzooplankton, macrozooplankton are viewed as a "trophic highway" between phytoplankton and fish, facilitating efficient energy transfer from primary producers to fish through a short food chain. 
+
+The intermediate trophic level in the NCC is composed of macrozooplankton (euphausiids and other large sized zooplankton, like copepods) and micronekton (large crustaceans and small fish and squid). Krill (Euphausiidae spp.) dominate the biomass of this group, composing the vast majority of the total catch in nighttime midwater trawls [@Brodeur2019]. Krill are omnivorous, with their diet likely primarily composed of phytoplankton, but supplemented by marine snow and small zooplankton [@Ohman1984; @Dorman2015].
+
+Forage fishes
+
+Juvenile salmonids, our focal taxa, are a very small component of the fish community by biomass [@Gomes2022a], and are proportionally less abundant in the NCC than they are in other areas of the Northeast Pacific, such as the Gulf of Alaska [@Orsi2007].
+
+Juvenile salmonids have a diverse diet that includes various fish, euphausiids, decapods, amphipods, copepods, and crab larvae [@Daly2009]. Juvenile salmonids undergo ontogenetic shifts in diet, with larger individuals consuming proportionally more fish [@Daly2009]. Piscivory is also more important for juvenile Chinook than for juvenile Coho salmon [@Daly2009].
+
+Predators of juvenile salmonids and forage fishes include piscivorous fishes and seabirds.
+
+It must also be noted that the food web of the NCC is not static; for example, the marine heatwave from 2014-2016 led to highly anomalous abundances of different taxa, with potential impacts for the full food web [@Brodeur2019; @Morgan2019].
+
+
+Now, of course, this food web is not static. It is constantly buffeted by environmental forcing. For example, see the MHW that seemed to restructure the community in the Blob.
+
+
+
+
+
+### Hypotheses
+
+
+
+
+
+
+
 
 
 ## Potential projects
