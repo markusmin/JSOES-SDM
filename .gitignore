@@ -12,3 +12,6 @@ google_drive/
 
 # ignore the data files to keep private
 *.xlsx
+
+# ignore temporary office files
+~$*.*
