@@ -62,6 +62,9 @@ Overview of methods:
 2. Estimate the degree of overlap between the distributions of different species in each year
 3. Fit a model using some metric of survival or adult returns as the response variable and metrics of overlap (in addition to other factors that we already know are important for survival, e.g.,outmigration timing) as predictors. This statistical model could be written as an integrated model in TMB that estimates SAR (from PIT tag data) as a function of our overlap metrics and other predictors.
 
+![Modeling workflow.](figures/modeling_workflow.png)
+
+
 
 ## References 
 
