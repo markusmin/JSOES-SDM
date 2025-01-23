@@ -27,6 +27,7 @@ library(here)
 library(janitor)
 library(tidyverse)
 library(kableExtra)
+library(sf)
 bongo <- clean_names(read_excel(here::here("Data", "Markus_Min_Plankton Density for Trophic Summary Query_10.11.24.xlsx")))
 
 trophic_groupings <- clean_names(read_excel(here::here("Data", "Markus_Min_Trophic Groupings_10.2.24.xlsx")))
@@ -83,9 +84,9 @@ bongo_catch_LH_collapse %>%
 
 ```{r load_spatial_data}
 #### Spatial data ####
-usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp")
+usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp", quiet = TRUE)
 # load BC
-CAN_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp")
+CAN_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp", quiet = TRUE)
 BC_spdf <- filter(CAN_spdf, PRENAME == "British Columbia")
 BC_proj <- st_transform(BC_spdf, crs = 4326)
 
@@ -116,20 +117,21 @@ BC_coast_proj_km <- st_as_sf(BC_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
 ## total density
 bongo_catch %>% 
   group_by(genus_species) %>% 
-  summarise(total_density = sum(sum_of_density_number_m3)) %>% 
-  arrange(desc(total_density)) %>% 
+  summarise(mean_density_per_m3 = mean(sum_of_density_number_m3)) %>% 
+  arrange(desc(mean_density_per_m3)) %>% 
   left_join(common_name_df, by = "genus_species") %>% 
   relocate(common_name, .after = "genus_species") -> bongo_catch_density_sums
 
 bongo_catch_density_sums[1:10,] %>% 
-  mutate(total_density = round(total_density, 0)) %>% 
-  kbl(caption = "Top ten taxa by sum of density.") %>% 
+  mutate(mean_density_per_m3 = round(mean_density_per_m3, 1)) %>% 
+  kbl(caption = "Top ten taxa by mean density.") %>% 
   kable_styling(latex_options = "HOLD_position")
 
 ## frequency of occurrence
 
 # get count of each genus_species
 bongo_catch_LH_collapse %>% 
+  filter(sum_of_density_number_m3 > 0) %>% 
   count(genus_species) %>% 
   arrange(desc(n)) %>% 
   mutate(prop_samples = n/nrow(bongo_tows)) %>% 
@@ -143,16 +145,6 @@ bongo_freq_occ[1:10, c("genus_species", "common_name", "prop_samples")] %>%
 
 ```
 
-```{r sampling_resolution}
-
-# temporal
-# it's every year, June only
-ggplot(bongo_tows, aes(x = sample_date)) +
-  geom_bar()
-
-
-
-```
 
 ##### Distributional maps
 
@@ -176,8 +168,6 @@ survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
         axis.ticks = element_blank(),
         axis.text = element_blank())
   # temporary fix for lat/long on axes to just get rid of them - start here to actually fix: https://forum.posit.co/t/converting-axes-to-lat-lon/27181
-
-survey_area_basemap_km
 
 survey_area_basemap <- ggplot(US_west_coast) +
   geom_sf() +
@@ -233,6 +223,10 @@ capa_dist_plot <- plot_distribution(data = subset(bongo_catch_LH_collapse, genus
 
 
 ggsave(here::here("docs", "figures", "jsoes_bongo_exploratory", "capa_dist_plot.png"), plot = capa_dist_plot, height = 12, width = 17)
+
+# print maps for website
+cama_dist_plot
+capa_dist_plot
 
 ```
 
