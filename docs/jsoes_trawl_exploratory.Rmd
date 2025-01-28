@@ -6,7 +6,7 @@ output:
   html_document
 ---
 
-This page contains exploratory analysis for the trawl data from JSOES.
+This page contains exploratory analysis for the trawl data from [JSOES](https://markusmin.github.io/JSOES-SDM/jsoes_survey_description.html).
 
 ```{r chunk-options, message = FALSE, echo = FALSE, warning = FALSE}
 # set chunk options
@@ -21,6 +21,10 @@ library(janitor)
 library(tidyverse)
 library(kableExtra)
 library(sf)
+library(gstat)
+library(sp)
+library(ggthemes)
+library(ape)
 
 #### Species data ####
 jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.2.24_FINAL.xlsx")))
@@ -34,6 +38,38 @@ jsoes %>%
 jsoes %>% 
   pivot_longer(., cols = all_of(species_column_names), values_to = "n_per_km", names_to = "species") %>% 
   mutate(n = n_per_km*trawl_dist_km) -> jsoes_long
+
+# Drop any samples that don't have spatial data
+filter(jsoes_long, !(is.na(mid_long))) -> jsoes_long
+# this drops one two samples: 061999CR35 and 062416QR14
+
+# turn this into an sf object
+st_as_sf(jsoes_long, coords = c("mid_long", "mid_lat"), crs = 4326) -> jsoes_long_sf
+
+# change CRS to UTM zone 10 (to work in meters)
+UTM_zone_10_crs <- 32610
+jsoes_long_sf_proj <- sf::st_transform(jsoes_long_sf, crs = UTM_zone_10_crs)
+
+# make this projection into kilometers to help with interpretability
+jsoes_long_sf_proj_km <- st_as_sf(jsoes_long_sf_proj$geometry/1000, crs = UTM_zone_10_crs)
+
+# extract geometry
+as.data.frame(st_coordinates(jsoes_long_sf_proj_km)) -> jsoes_long_km
+# add this back to jsoes_long (X and Y now represent eastings and northings in km)
+bind_cols(jsoes_long, jsoes_long_km) -> jsoes_long
+
+# Handle repeat tows: If a tow was repeated, keep only the repeat
+jsoes_long %>% 
+  mutate(tow_year = paste0(station, "_", year)) -> jsoes_long
+repeat_tows <- unique(subset(jsoes_long, `repeat` == TRUE)$tow_year)
+jsoes_long %>% 
+  filter(!(tow_year %in% repeat_tows & `repeat` == FALSE)) -> jsoes_long
+
+
+# get all unique tows
+jsoes_long %>% 
+  dplyr::select(-c(species, n_per_km, n)) %>% 
+  filter(!(duplicated(station_code))) -> jsoes_tows
 ```
 
 ```{r load_spatial_data}
@@ -107,11 +143,13 @@ survey_area_basemap <- ggplot(US_west_coast) +
 ## total density
 jsoes_long %>% 
   group_by(species) %>% 
-  summarise(mean_n_per_km = mean(n_per_km)) %>% 
+  summarise(mean_n_per_km = mean(n_per_km),
+            sd_n_per_km = sd(n_per_km)) %>% 
   arrange(desc(mean_n_per_km)) -> jsoes_density_sums
 
 jsoes_density_sums[1:10,] %>% 
-  mutate(mean_n_per_km = round(mean_n_per_km, 1)) %>% 
+  mutate(mean_n_per_km = round(mean_n_per_km, 1),
+         sd_n_per_km = round(sd_n_per_km, 1)) %>% 
   kbl(caption = "Top ten taxa by mean density.") %>% 
   kable_styling(latex_options = "HOLD_position")
 
@@ -151,25 +189,35 @@ water_jellies <- subset(jsoes_long, species == "water_jelly")
 
 
 ```{r map_salmon}
-plot_distribution <- function(data){
+plot_distribution <- function(data, taxon_name){
   # create facet_wrap plot for distribution across all years
   data %>% 
     mutate(encounter = ifelse(n_per_km == 0, "zero", "non-zero")) -> data
   
-  survey_area_basemap +
+  # Drop 1998 (no water jellies recorded in that year)
+  data %>% 
+    filter(year != 1998) -> data
+  
+survey_area_basemap +
       geom_point(data = data, aes(x = mid_long, y = mid_lat, size = n_per_km, color = encounter),
                  alpha = 0.5) +
     scale_color_manual(values = c("zero" = "#fc9272", "non-zero" = "#2ca25f")) +
     facet_wrap(~year, nrow = 3) +
-    theme(legend.position = c(0.95, 0.1)) -> species_distribution_plot
+    ggtitle(taxon_name) +
+    theme(legend.position = c(0.9, 0.15),
+        legend.key.height = unit(0.35, "cm"),
+        legend.key.width = unit(0.25, "cm"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        legend.spacing.y = unit(0.01, 'cm')) -> species_distribution_plot
   
   return(species_distribution_plot)
 }
 
-coho_dist_plot <- plot_distribution(data = coho)
-csyis_dist_plot <- plot_distribution(data = csyis)
-csyif_dist_plot <- plot_distribution(data = csyif)
-water_jellies_dist_plot <- plot_distribution(data = water_jellies)
+coho_dist_plot <- plot_distribution(data = coho, taxon_name = "Yearling Coho Salmon")
+csyis_dist_plot <- plot_distribution(data = csyis, taxon_name = "Yearling Interior Columbia Spring Chinook")
+csyif_dist_plot <- plot_distribution(data = csyif, taxon_name = "Yearling Interior Columbia Fall Chinook")
+water_jellies_dist_plot <- plot_distribution(data = water_jellies, taxon_name = "Water Jellies")
 
 coho_dist_plot
 csyis_dist_plot
@@ -178,13 +226,477 @@ water_jellies_dist_plot
 ```
 
 
-```{r histograms}
-hist(coho$n_per_km, breaks = 60)
-hist(csyis$n_per_km, breaks = 60)
-hist(csyif$n_per_km, breaks = 60)
-hist(water_jellies$n_per_km, breaks = 60)
+By taking the mean log density across the survey region, we can also create a crude index of abundance.
+
+```{r trawl_time_series}
+create_time_series <- function(data, taxon){
+  data %>% 
+    filter(year != 1998)  %>% 
+    mutate(log_density = log(n_per_km + 1)) %>% 
+    group_by(year) %>% 
+    summarise(mean_density = mean(log_density),
+              sd_density = sd(log_density)) %>% 
+    # mutate(CI_95_upper = mean_density + 1.96*sd_density) %>% 
+    # mutate(CI_95_lower = mean_density - 1.96*sd_density) %>% 
+    mutate(taxon = taxon) -> ts
+  
+  return(ts)
+}
+
+create_time_series(data = csyis,
+                   taxon = "Interior Columbia Yearling Spring Chinook") -> csyis_ts
+create_time_series(data = csyif,
+                   taxon = "Interior Columbia Yearling Fall Chinook") -> csyif_ts
+create_time_series(data = coho,
+                   taxon = "Yearling Coho Salmon") -> coho_ts
+create_time_series(data = water_jellies,
+                   taxon = "Water Jellies") -> water_jellies_ts
+
+csyis_ts %>% 
+  bind_rows(., csyif_ts, coho_ts, water_jellies_ts) -> jsoes_ts
+
+ggplot(jsoes_ts, aes(x = year, y = mean_density, color = taxon)) +
+  geom_point() +
+  geom_line() +
+  ylab("Mean log (n per km + 1)") +
+  scale_color_tableau(palette = "Tableau 10")
+```
+
+<br>
+
+From the maps and the indices of abundance, we see that the most pronounced trend is in Water Jellies, with what appears to be a regime shift from a period of relatively lower abundance before the Blob (1999-2013) to much higher abundances during and after the Blob (2014-2023).
+
+### Temporal and Spatial Autocorrelation
+
+Before fitting any spatiotemporal models, we must explore the spatial and temporal autocorrelation in the data.
+
+#### Temporal structure
+
+We can first inspect the autocorrelation in our *Calanus marshallae* and *Calanus pacificus* mean annual time series.
+
+```{r coastwide_temporal_autocorrelation}
+# It would make sense to try different spatial structures and then test autocorrelation.
+# 1) Coastwide; 2) By transect; 3) By station
+
+acf(csyis_ts$mean_density, main = "Interior Columbia Yearling Spring Chinook")
+acf(csyif_ts$mean_density, main = "Interior Columbia Yearling Fall Chinook")
+acf(coho_ts$mean_density, main = "Yearling Coho Salmon")
+acf(water_jellies_ts$mean_density, main = "Water Jellies")
+    
+```
+
+None of the four taxa investigated here show temporal autocorrelation.
+
+We can also inspect temporal autocorrelation at the scale of individual stations. To reduce the number of individual ACF plots, I have instead plotted histograms showing the distribution of lag 1 autocorrelation across station for each of our two four test species, along with time series plots for the stations that had significant autocorrelation at this lag:
+
+```{r by_station_temporal_autocorrelation_functions}
+as.data.frame(table(jsoes_tows$station)) %>% 
+  filter(Freq >= 10) %>% 
+  dplyr::rename(station = Var1) -> annual_stations
+
+station_subset <- annual_stations$station
+
+lag1_AC_station <- function(data, taxon, station_name){
+  data %>% 
+    filter(station == station_name) %>% 
+    dplyr::select(species, n_per_km, year, station) %>% 
+    mutate(log_density = log(n_per_km + 1)) -> data_subset
+  
+  # if we're missing years, fill them in with NAs
+  data_subset %>% 
+    complete(., year = 1999:2023, fill = list(taxon = taxon, 
+                                              n_per_km = NA,
+                                              log_density = NA,
+                                              station = station_name)) -> data_subset
+  
+  acf_obj <- acf(data_subset$log_density, na.action = na.pass,
+                 plot = FALSE)
+  nn <- acf_obj$n.used
+  upper_95_CI <- -1/nn + 2/sqrt(nn)
+  
+  lag1_autocorrelation <- acf_obj$acf[2,1,1]
+  
+  sig <- ifelse(lag1_autocorrelation > upper_95_CI, "yes", "no")
+  
+  station_lag1_ac <- data.frame(station = station_name, lag1_ac = lag1_autocorrelation, 
+                                taxon = taxon, significant = sig)
+  
+  return(station_lag1_ac)
+}
+
+plot_station_ts <- function(data, taxon, station_name){
+  data %>% 
+    filter(station == station_name,
+           genus_species == taxon) %>% 
+    mutate(log_density = log(sum_of_density_number_m3 + 1)) %>% 
+    dplyr::select(genus_species, sum_of_density_number_m3, log_density, year, station) -> data_subset
+  
+  # if we're missing years, fill them in with NAs
+  data_subset %>% 
+    complete(., year = 1999:2023, fill = list(genus_species = taxon, 
+                                              sum_of_density_number_m3 = NA,
+                                              log_density = NA,
+                                              station = station_name)) -> data_subset
+  
+  plot <- ggplot(data_subset, aes(x = year, y = log_density, color = taxon)) +
+    geom_point() +
+    geom_line() +
+    ylab("log density +1 (N/km)") +
+    ggtitle(station_name) +
+    scale_color_tableau(pallete = "Tableau 10")
+  
+  print(plot)
+  return(plot)
+}
+```  
+
+```{r by_station_temporal_autocorrelation_calanus}
+# Yearling Coho Salmon
+coho_lag1_AC <-  lag1_AC_station(data = coho,
+                           taxon = "Yearling Coho Salmon",
+                           station_name = station_subset[1])
+
+for (i in 2:length(station_subset)) {
+  
+  station_lag1_AC <- lag1_AC_station(data = coho,
+                           taxon = "Yearling Coho Salmon",
+                           station_name = station_subset[i])
+  
+  coho_lag1_AC %>% 
+    bind_rows(., station_lag1_AC) -> coho_lag1_AC
+  
+}
+
+ggplot(coho_lag1_AC, aes(x = lag1_ac, fill = significant))+
+  geom_histogram() + 
+  ggtitle("Yearling Coho Salmon Lag 1 autocorrelation")+
+  xlab("Lag 1 autocorrelation")
+
+# Plot the time series for the one station with significant lag 1 autocorrelation (LP06)
+coho_sig_stations <- subset(coho,
+         station %in% subset(coho_lag1_AC, significant == "yes")$station)
+
+ggplot(coho_sig_stations, aes(x = year, y = n_per_km, color = station)) +
+    geom_point() +
+    geom_line() +
+    ylab("Density (N/km)") +
+    ggtitle("Yearling coho Salmon, stations with significant lag 1 autocorrelation") +
+    scale_color_tableau(palette = "Tableau 10")
+
+# Yearling Interior Columbia Spring Chinook Salmon
+csyis_lag1_AC <-  lag1_AC_station(data = csyis,
+                                 taxon = "Yearling Interior Columbia Spring Chinook Salmon",
+                                 station_name = station_subset[1])
+
+for (i in 2:length(station_subset)) {
+  
+  station_lag1_AC <- lag1_AC_station(data = csyis,
+                                     taxon = "Yearling Interior Columbia Spring Chinook Salmon",
+                                     station_name = station_subset[i])
+  
+  csyis_lag1_AC %>% 
+    bind_rows(., station_lag1_AC) -> csyis_lag1_AC
+  
+}
+
+ggplot(csyis_lag1_AC, aes(x = lag1_ac, fill = significant))+
+  geom_histogram() + 
+  ggtitle("Yearling Interior Columbia Spring Chinook Salmon Lag 1 autocorrelation")+
+  xlab("Lag 1 autocorrelation")
+
+# Plot the time series for the one station with significant lag 1 autocorrelation (LP06)
+csyis_sig_stations <- subset(csyis,
+                            station %in% subset(csyis_lag1_AC, significant == "yes")$station)
+
+ggplot(csyis_sig_stations, aes(x = year, y = n_per_km, color = station)) +
+  geom_point() +
+  geom_line() +
+  ylab("Density (N/km)") +
+  ggtitle("Yearling Interior Columbia Spring Chinook Salmon, stations with significant lag 1 autocorrelation") +
+  scale_color_tableau(palette = "Tableau 10")
+
+# Yearling Interior Columbia Fall Chinook Salmon
+csyif_lag1_AC <-  lag1_AC_station(data = csyif,
+                                 taxon = "Yearling Interior Columbia Fall Chinook Salmon",
+                                 station_name = station_subset[1])
+
+for (i in 2:length(station_subset)) {
+  
+  station_lag1_AC <- lag1_AC_station(data = csyif,
+                                     taxon = "Yearling Interior Columbia Fall Chinook Salmon",
+                                     station_name = station_subset[i])
+  
+  csyif_lag1_AC %>% 
+    bind_rows(., station_lag1_AC) -> csyif_lag1_AC
+  
+}
+
+ggplot(csyif_lag1_AC, aes(x = lag1_ac, fill = significant))+
+  geom_histogram() + 
+  ggtitle("Yearling Interior Columbia Fall Chinook Salmon Lag 1 autocorrelation")+
+  xlab("Lag 1 autocorrelation")
+
+# Plot the time series for the one station with significant lag 1 autocorrelation (LP06)
+csyif_sig_stations <- subset(csyif,
+                            station %in% subset(csyif_lag1_AC, significant == "yes")$station)
+
+ggplot(csyif_sig_stations, aes(x = year, y = n_per_km, color = station)) +
+  geom_point() +
+  geom_line() +
+  ylab("Density (N/km)") +
+  ggtitle("Yearling Interior Columbia Fall Chinook Salmon, stations with significant lag 1 autocorrelation") +
+  scale_color_tableau(palette = "Tableau 10")
+
+# Water Jellies
+water_jellies_lag1_AC <-  lag1_AC_station(data = water_jellies,
+                                 taxon = "Water Jellies",
+                                 station_name = station_subset[1])
+
+for (i in 2:length(station_subset)) {
+  
+  station_lag1_AC <- lag1_AC_station(data = water_jellies,
+                                     taxon = "Water Jellies",
+                                     station_name = station_subset[i])
+  
+  water_jellies_lag1_AC %>% 
+    bind_rows(., station_lag1_AC) -> water_jellies_lag1_AC
+  
+}
+
+ggplot(water_jellies_lag1_AC, aes(x = lag1_ac, fill = significant))+
+  geom_histogram() + 
+  ggtitle("Water Jellies Lag 1 autocorrelation")+
+  xlab("Lag 1 autocorrelation")
+
+# Plot the time series for the one station with significant lag 1 autocorrelation (LP06)
+water_jellies_sig_stations <- subset(water_jellies,
+                            station %in% subset(water_jellies_lag1_AC, significant == "yes")$station)
+
+ggplot(water_jellies_sig_stations, aes(x = year, y = n_per_km, color = station)) +
+  geom_point() +
+  geom_line() +
+  ylab("Density (N/km)") +
+  ggtitle("Water Jellies, stations with significant lag 1 autocorrelation") +
+  scale_color_tableau(palette = "Tableau 10")
+```
+
+Despite the lack of temporal autocorrelation at the coastwide scale, for each taxon there are a number of stations that show temporal autocorrelation. 
+
+#### Spatial structure
+
+To investigate spatial autocorrelation, we will calculate two metrics: Semivariance and Moran's I. Semivariance, visualized using a semivariogram, allows us to examine how spatial autocorrelation decays with increasing distance. In a semivariogram, high spatial autocorrelation appears as as a clear slope that then reaches a plateau at the distance at which there is no spatial autocorrelation, as seen in this image from Wikipedia:
+
+![An example Variogram.](figures/semivariogram_wikipedia.png){width=50%}
+
+To calculate the semivariance, we compute the variance of the difference between values (in our case, the log density) for different distances between samples. It is given by the following formula:
+
+$$
+    \gamma(h) = \frac{1}{2} \mathrm{Var}( \log(x_i) - \log(x_{i+h}) )
+$$
+Where $h$ is the distance between two points, $x_i$ is the value of the log density at one location and $x_{i+h}$ is value of the log density at a location $h$ distance away. Multiplying by $\frac{1}{2}$ accounts for the fact that the formula accounts for the variance arising at both points.
+
+From the semivariance, we can then construct a semivariogram, which depicts the spatial autocorrelation of samples. A semivariogram takes the semivariance calculated for each pair of points and summarizes it by taking the mean value across each bin.
+
+Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure.
+
+Given that we did not see much evidence for temporal autocorrelation, we will examine the evidence for spatial autocorrelation on a year by year basis. As such, we will construct a separate semivariogram and calculate Moran's I separately for each year. To summarize the Moran's I results, we show the p-value for Moran's I for each year, with the blue dashed line showing a p-value of 0.05.
+
+```{r spatial_autocorrelation_functions}
+# If you wanted to add a best fit line:
+# A best fit line is then plotted through the points.
+# For each year, we will plot the best fit semivariogram model, which we selected from a set of five candidate functional response shapes: 1) Exponential, 2) Spherical, 3) Gaussian, 4) Linear, and 5) Nugget only (y-intercept only).
+
+
+
+# Set the models to test
+# To see the shape of these models, run `show.vgms()`
+model.choices <- vgm(model = c("Nug", "Exp", "Sph", "Gau", "Lin"))
+
+# Function to plot the best fit variogram for a species in a year
+# We are going to use 200 km as our cutoff: That should more or less encompass 
+# stations that are one transect apart from each other (transects are separated
+# by a little less than one degree latitude, which is about 110 km),
+# and the extra is to include stations that are on neighboring transects
+# but on opposite ends of the transect
+# We will bin by every 10 km; this should get neighboring stations but not 
+# stations that are two stations away
+fit_variogram_one_year <- function(data,  select_year){
+  data_subset <- subset(data, year == select_year)
+  coordinates(data_subset) = ~X+Y
+  
+  # Fit isotropic variogram
+  iso_v <- variogram(log(n_per_km+1)~1, data = data_subset, cloud=F,
+                     cutoff = 200, width = 10)
+  model.choices <- vgm(model = c("Nug", "Exp", "Sph", "Gau", "Lin"))
+  variogram_bestfit <- fit.variogram(iso_v, model.choices)
+  
+  # plot(iso_v, pl=F, model=variogram_bestfit,col="black", cex=1, lwd=0.5,lty=1,pch=20,
+  #    main = paste(select_year), xlab="Distance (km)",ylab="Semivariance",
+  #    xaxt = "n",
+  #    xlim = c(-5, 205))
+    plot(iso_v, pl=F,col="black", cex=1, lwd=0.5,lty=1,pch=20,
+     main = paste(select_year), xlab="Distance (km)",ylab="Semivariance",
+     xaxt = "n",
+     xlim = c(-5, 205))
+}
+
+# compute Moran's I in any given year
+calculate_moranI_one_year <- function(data, select_year){
+  # function based on code from here: https://stats.oarc.ucla.edu/r/faq/how-can-i-calculate-morans-i-in-r/
+  
+  # subset data
+  data_subset <- subset(data, year == select_year)
+  
+  # get distances between samples
+  sample.dists <- as.matrix(dist(cbind(data_subset$X, data_subset$Y)))
+  
+  # get inverse of matrix values and replace diagonals with zero
+  sample.dists.inv <- 1/sample.dists
+  diag(sample.dists.inv) <- 0
+  
+  # calculate Moran's I for the log density
+  moran_results <- Moran.I(log(data_subset$n_per_km+1), sample.dists.inv)
+  
+  return(moran_results$p.value)
+}
 
 ```
 
 
+We will first examine spatial autocorrelation in Yearling Coho Salmon.
+
+```{r spatial_autocorrelation_coho, fig.show = "hold", out.width = "25%"}
+### Yearling Coho Salmon
+# Figure out what years have any catch of this taxon
+coho %>% 
+  group_by(year) %>% 
+  summarise(year_total = sum(n_per_km)) %>% 
+  filter(year_total > 0) %>% 
+  arrange(year) -> coho_year_counts
+
+for (i in 1:length(coho_year_counts$year)){
+  print(fit_variogram_one_year(data = coho, 
+                         select_year = coho_year_counts$year[i]))
+}
+```
+
+```{r spatial_autocorrelation_coho_moran_I}
+# Calculate Moran's I for each
+moran_I_p_values_coho <- data.frame(year = coho_year_counts$year,
+  p_value = rep(NA, length(coho_year_counts$year)))
+
+for (i in 1:length(coho_year_counts$year)){
+  moran_I_p_values_coho$p_value[i] <- calculate_moranI_one_year(data = coho,
+                         select_year = coho_year_counts$year[i])
+    
+}
+plot(x = moran_I_p_values_coho$year, y = moran_I_p_values_coho$p_value,
+     xlab = "Year", ylab = "Moran's I p-value", main = "Yearling Coho Salmon Moran's I")
+abline(a = 0.05, b = 0, lty = 2, col = "blue")
+```
+
+<br>
+
+
+
+
+<br>
+
+We will first examine spatial autocorrelation in Yearling Interior Spring Chinook Salmon.
+
+```{r spatial_autocorrelation_csyis, fig.show = "hold", out.width = "25%"}
+### Yearling Interior Spring Chinook Salmon
+# Figure out what years have any catch of this taxon
+csyis %>% 
+  group_by(year) %>% 
+  summarise(year_total = sum(n_per_km)) %>% 
+  filter(year_total > 0) %>% 
+  arrange(year) -> csyis_year_counts
+
+for (i in 1:length(csyis_year_counts$year)){
+  print(fit_variogram_one_year(data = csyis, 
+                               select_year = csyis_year_counts$year[i]))
+}
+```
+
+```{r spatial_autocorrelation_csyis_moran_I}
+# Calculate Moran's I for each
+moran_I_p_values_csyis <- data.frame(year = csyis_year_counts$year,
+                                    p_value = rep(NA, length(csyis_year_counts$year)))
+
+for (i in 1:length(csyis_year_counts$year)){
+  moran_I_p_values_csyis$p_value[i] <- calculate_moranI_one_year(data = csyis,
+                                                                select_year = csyis_year_counts$year[i])
+  
+}
+plot(x = moran_I_p_values_csyis$year, y = moran_I_p_values_csyis$p_value,
+     xlab = "Year", ylab = "Moran's I p-value", main = "Yearling Interior Spring Chinook Salmon Moran's I")
+abline(a = 0.05, b = 0, lty = 2, col = "blue")
+```
+
+We will first examine spatial autocorrelation in Yearling Interior Fall Chinook Salmon.
+
+```{r spatial_autocorrelation_csyif, fig.show = "hold", out.width = "25%"}
+### Yearling Interior Fall Chinook Salmon
+# Figure out what years have any catch of this taxon
+csyif %>% 
+  group_by(year) %>% 
+  summarise(year_total = sum(n_per_km)) %>% 
+  filter(year_total > 0) %>% 
+  arrange(year) -> csyif_year_counts
+
+for (i in 1:length(csyif_year_counts$year)){
+  print(fit_variogram_one_year(data = csyif, 
+                               select_year = csyif_year_counts$year[i]))
+}
+```
+
+```{r spatial_autocorrelation_csyif_moran_I}
+# Calculate Moran's I for each
+moran_I_p_values_csyif <- data.frame(year = csyif_year_counts$year,
+                                    p_value = rep(NA, length(csyif_year_counts$year)))
+
+for (i in 1:length(csyif_year_counts$year)){
+  moran_I_p_values_csyif$p_value[i] <- calculate_moranI_one_year(data = csyif,
+                                                                select_year = csyif_year_counts$year[i])
+  
+}
+plot(x = moran_I_p_values_csyif$year, y = moran_I_p_values_csyif$p_value,
+     xlab = "Year", ylab = "Moran's I p-value", main = "Yearling Interior Fall Chinook Salmon Moran's I")
+abline(a = 0.05, b = 0, lty = 2, col = "blue")
+```
+
+We will first examine spatial autocorrelation in Water Jellies.
+
+```{r spatial_autocorrelation_water_jellies, fig.show = "hold", out.width = "25%"}
+### Water Jellies
+# Figure out what years have any catch of this taxon
+water_jellies %>% 
+  group_by(year) %>% 
+  summarise(year_total = sum(n_per_km)) %>% 
+  filter(year_total > 0) %>% 
+  arrange(year) -> water_jellies_year_counts
+
+for (i in 1:length(water_jellies_year_counts$year)){
+  print(fit_variogram_one_year(data = water_jellies, 
+                               select_year = water_jellies_year_counts$year[i]))
+}
+```
+
+```{r spatial_autocorrelation_water_jellies_moran_I}
+# Calculate Moran's I for each
+moran_I_p_values_water_jellies <- data.frame(year = water_jellies_year_counts$year,
+                                    p_value = rep(NA, length(water_jellies_year_counts$year)))
+
+for (i in 1:length(water_jellies_year_counts$year)){
+  moran_I_p_values_water_jellies$p_value[i] <- calculate_moranI_one_year(data = water_jellies,
+                                                                select_year = water_jellies_year_counts$year[i])
+  
+}
+plot(x = moran_I_p_values_water_jellies$year, y = moran_I_p_values_water_jellies$p_value,
+     xlab = "Year", ylab = "Moran's I p-value", main = "Water Jellies Moran's I")
+abline(a = 0.05, b = 0, lty = 2, col = "blue")
+```
+
+Based on the Moran's I results, we see that there is evidence for spatial clustering in some years than others. There are also notably more years where the Moran's I value is significant for these taxa than there are for the two copepod species examined in the JSOES Bongo exploratory analysis.  However, there is not a clear slope to the semivariogram, which indicates that the degree of spatial autocorrelation at our sampling variation and that there is a lot of noise in our data. It suggests that all of our taxa are quite patchy, with these patches occurring on a scale less than the scale of the sampling resolution (which is 5 nm along a single transect orthogonal to the coast). This is similar to our results for two copepod species from the JSOES Bongo net data.
 

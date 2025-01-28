@@ -32,7 +32,7 @@ The PRS survey uses multiple sampling methods:
 
 The PRS began in 2001 as a collaboration between NOAA and the Paciﬁc Whiting Conservation Cooperative (PWCC) and helped complement survey eﬀort by the RREAS oﬀ California. The PWCC surveys sampled at non-fixed locations centered on the shelf break because of the belief that that was where YOY hake were most likely to occur. The PWCC surveys covered the area from Newport, OR to Point Conception in 2001, 2002, and 2003. In 2004,  the spatial coverage was expanded to just north of the Columbia River, and in 2005, was again expanded to just south of Cape Flattery [@Sakuma2006]. The last year of the PWCC survey was 2009.
 
-Since 2011, the PRS has been operated by the NWFSC and coordinates directly with the RREAS. The area covered by the PRS includes the Oregon and Washington coasts from approximately Brookings, OR to the mouth of the Columbia River.
+Since 2011, the PRS has been operated by the NWFSC and coordinates directly with the RREAS. The area covered by the PRS includes the Oregon and Washington coasts from approximately Brookings, OR to the mouth of the Columbia River. Sampling typically occurs between late May and early July, which overlaps considerably with the JSOES.
 
 ![Map of the PRS survey extent from @Brodeur2019.](survey_images/Brodeur_2019_PRS_design.png)
 

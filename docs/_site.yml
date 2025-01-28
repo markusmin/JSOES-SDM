@@ -9,6 +9,8 @@ navbar:
       href: project_description.html   
     - text: "Survey Descriptions"
       menu:  
+      - text: "Overview of NCC Surveys"
+        href: surveys_overview.html
       - text: "JSOES"
         href: jsoes_survey_description.html
       - text: "CCES"

@@ -11,7 +11,7 @@ output:
 ## Survey objectives and background
 The objectives of the Juvenile Salmon & Ocean Ecosystem Survey (JSOES) include:
 
-1. identifying shifts in the abundance, distribution, and growth/condition of migrating juvenile salmon
+1. Identifying shifts in the abundance, distribution, and growth/condition of migrating juvenile salmon
 2. Characterizing the ocean ecosystem by sampling physical and biological data
 
 
@@ -29,7 +29,7 @@ From @Morgan2019a:
 
 The JSOES survey occurs off the coasts of Oregon and Washington, with transects conducted perpendicularly to the coast. JSOES surveys are conducted every year in June. The JSOES survey is also conducted intermittently in May, and from 1998-2012, the JSOES survey was also conducted in September.
 
-![Map of the JSOES survey extent from @Barcelo2021.](survey_images/JSOES_map_barcelo_2021.jpg)
+![Map of the JSOES survey extent from @Barcelo2021.](survey_images/JSOES_map_barcelo_2021.jpg){width=50%}
 
 
 <br>
@@ -43,14 +43,16 @@ Bongo:
 
 - Euphausiids
 - Copepods
-- Various invertebrate larvae (e.g., barnacles and *Cancer*)
+- Various invertebrate larvae (e.g., barnacles and *Cancer* megalopae)
 
 
 Trawl:
 
 - Subadult, yearling, and subyearling salmon (primarily Chinook and Coho)
-- Coastal pelagic species, such as Pacific sardine, Northern Anchovy, American Shad, various smelts, Jack Mackerel, and Pacific Herring
+- Coastal pelagic species, such as Pacific sardine, Northern Anchovy, American Shad, various smelts, Jack Mackerel, and Pacific Herring. However, because sampling occurs during daylight hours, some forage species are not sampled well due to their diel vertical migrations.
 - Gelatinous zooplankton, like water jellies
+
+<br>
 
 #### References
 
