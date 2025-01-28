@@ -5,8 +5,8 @@ date: "`r Sys.Date()`"
 output:
   html_document
 ---
-```{r, echo = FALSE, message = FALSE, warning = FALSE, results = FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = FALSE)
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
 This page contains exploratory analysis for the Bongo net data from [JSOES](https://markusmin.github.io/JSOES-SDM/jsoes_survey_description.html). Please note that because the Bongo net tows occur during daylight hours, the tow composition is biased towards taxa/life stages that do not vertically migrate.
@@ -227,7 +227,6 @@ plot_distribution <- function(data, taxon_name){
 ```
 
 
-#### Warm-water vs. cold-water copepods
 
 To demonstrate potential analyses that could be applied to different taxa, we will focus for now on copepods. In the JSOES Bongo data *Calanus marshallae* is the most abundant cold-water copepod and *Calanus pacificus* is the most abundant warm-water coepod. To demonstrate how we can visualize the abundance of these two key copepod species in space and time, we plot their density in survey catch below.
 
@@ -288,7 +287,7 @@ ggplot(calanus_ts, aes(x = year, y = mean_density, color = taxon)) +
 
 From the maps and the indices of abundance, we see that *Calanus marshallae* is usually more abundant than *Calanus pacificus*, except in warm years (e.g., 2015-2017, which aligns with the Blob).
 
-### Temporal and Spatial Autocorrelation
+## Temporal and Spatial Autocorrelation
 
 Before fitting any spatiotemporal models, we must explore the spatial and temporal autocorrelation in the data.
 
@@ -311,9 +310,9 @@ colnames(bongo_stations_distance_matrix) <- bongo_stations$station
 rownames(bongo_stations_distance_matrix) <- bongo_stations$station
 ```
 
+<br>
 
-
-#### Temporal structure
+### Temporal structure
 
 We can first inspect the autocorrelation in our *Calanus marshallae* and *Calanus pacificus* mean annual time series.
 
@@ -327,7 +326,7 @@ acf(capa_ts$mean_density, main = "Calanus pacificus, mean log density")
 
 At the coastwide scale the *Calanus marshallae* time series does not show temporal autocorrelation, but the *Calanus pacificus* time series does at a lag of one year.
 
-We can also inspect temporal autocorrelation at the scale of individual stations. To reduce the number of individual ACF plots, I have instead plotted histograms showing the distribution of lag 1 autocorrelation across station for each of our two focal copepod species, along with time series plots for the stations that had significant autocorrelation at this lag:
+We can also inspect temporal autocorrelation at the scale of individual stations. To reduce the number of individual ACF plots, I have instead plotted histograms showing the distribution of lag 1 autocorrelation across stations for each of our two focal copepod species, along with time series plots for the stations that had significant autocorrelation at this lag:
 
 ```{r by_station_temporal_autocorrelation_functions}
 as.data.frame(table(bongo_tows$station)) %>% 
@@ -460,11 +459,16 @@ ggplot(capa_sig_stations, aes(x = year, y = sum_of_density_number_m3, color = st
 
 There is higher temporal autocorrelation at the scale of individual stations for *Calanus pacificus*, which aligns with our coastwide results. Given the relatively short generation times of these copepods, we might expect that the temporal autocorrelation of copepod abundance is driven by the persistence of oceanographic conditions, such as the consecutive years of high abundance during the Blob.
 
-#### Spatial structure
+<br>
 
-To investigate spatial autocorrelation, we will calculate two metrics: Semivariance and Moran's I. Semivariance, visualized using a semivariogram, allows us to examine how spatial autocorrelation decays with increasing distance. In a semivariogram, high spatial autocorrelation appears as as a clear slope that then reaches a plateau at the distance at which there is no spatial autocorrelation, as seen in this image from Wikipedia:
+### Spatial structure
+
+To investigate spatial autocorrelation, we will calculate two metrics: Semivariance and Moran's I. Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure. Semivariance, visualized using a semivariogram, allows us to examine how spatial autocorrelation decays with increasing distance. In a semivariogram, high spatial autocorrelation appears as as a clear slope that then reaches a plateau at the distance at which there is no spatial autocorrelation, as seen in this image from Wikipedia:
 
 ![An example Variogram.](figures/semivariogram_wikipedia.png){width=50%}
+
+
+<br>
 
 To calculate the semivariance, we compute the variance of the difference between values (in our case, the log density) for different distances between samples. It is given by the following formula:
 
@@ -474,8 +478,6 @@ $$
 Where $h$ is the distance between two points, $x_i$ is the value of the log density at one location and $x_{i+h}$ is value of the log density at a location $h$ distance away. Multiplying by $\frac{1}{2}$ accounts for the fact that the formula accounts for the variance arising at both points.
 
 From the semivariance, we can then construct a semivariogram, which depicts the spatial autocorrelation of samples. A semivariogram takes the semivariance calculated for each pair of points and summarizes it by taking the mean value across each bin.
-
-Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure.
 
 Given that we did not see much evidence for temporal autocorrelation, we will examine the evidence for spatial autocorrelation on a year by year basis. As such, we will construct a separate semivariogram and calculate Moran's I separately for each year. To summarize the Moran's I results, we show the p-value for Moran's I for each year, with the blue dashed line showing a p-value of 0.05.
 
@@ -506,7 +508,7 @@ fit_variogram_one_year <- function(data, taxon, select_year){
   iso_v <- variogram(log(sum_of_density_number_m3+1)~1, data = data_subset, cloud=F,
                      cutoff = 200, width = 10)
   model.choices <- vgm(model = c("Nug", "Exp", "Sph", "Gau", "Lin"))
-  variogram_bestfit <- fit.variogram(iso_v, model.choices)
+  # variogram_bestfit <- fit.variogram(iso_v, model.choices)
   
   # plot(iso_v, pl=F, model=variogram_bestfit,col="black", cex=1, lwd=0.5,lty=1,pch=20,
   #    main = paste(select_year), xlab="Distance (km)",ylab="Semivariance",
@@ -619,7 +621,7 @@ plot(x = moran_I_p_values_capa$year, y = moran_I_p_values_capa$p_value,
 abline(a = 0.05, b = 0, lty = 2, col = "blue")
 ```
 
-Based on the Moran's I results, we see that there is evidence for spatial clustering in some years than others. However, there is not a clear slope to the semivariogram, which indicates that the degree of spatial autocorrelation at our sampling variation and that there is a lot of noise in our data. It suggests that copepods are quite patchy, with these patches occurring on a scale less than the scale of the sampling resolution (which is 5 nm along a single transect orthogonal to the coast).
+Based on the Moran's I results, we see that there is evidence for spatial clustering in some years but not others. However, there is not a clear slope to the semivariogram, which indicates that there is not evidence for spatial autocorrelation at our sampling resolution. The spread of the points also indicates that our data is quite noisy. These exploratory results suggest that copepods are quite patchy, with these patches occurring on a scale less than the scale of the sampling resolution (which is 5 nm along a single transect orthogonal to the coast).
 
 
 ```{r eval = FALSE}

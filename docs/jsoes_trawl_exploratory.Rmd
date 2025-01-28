@@ -174,10 +174,11 @@ jsoes_freq_occ[1:10, ] %>%
 #### Plotting distributions of some common taxa
 
 Some focal taxa: 
-- Coho salmon yearlings
-- Interior Columbia Fall Chinook salmon yearlings
-- Interior Columbia Spring Chinook salmon yearlings
-- Water jellies (highest density taxon)
+
+- Yearling Coho Salmon
+- Yearling Interior Columbia Fall Chinook Salmon
+- Yearling Interior Columbia Spring Chinook Salmon
+- Water Jellies
 
 ```{r prep_salmon_data}
 csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
@@ -266,13 +267,15 @@ ggplot(jsoes_ts, aes(x = year, y = mean_density, color = taxon)) +
 
 From the maps and the indices of abundance, we see that the most pronounced trend is in Water Jellies, with what appears to be a regime shift from a period of relatively lower abundance before the Blob (1999-2013) to much higher abundances during and after the Blob (2014-2023).
 
-### Temporal and Spatial Autocorrelation
+## Temporal and Spatial Autocorrelation
 
 Before fitting any spatiotemporal models, we must explore the spatial and temporal autocorrelation in the data.
 
-#### Temporal structure
+<br>
 
-We can first inspect the autocorrelation in our *Calanus marshallae* and *Calanus pacificus* mean annual time series.
+### Temporal structure
+
+We can first inspect the autocorrelation in our four mean annual time series.
 
 ```{r coastwide_temporal_autocorrelation}
 # It would make sense to try different spatial structures and then test autocorrelation.
@@ -287,7 +290,7 @@ acf(water_jellies_ts$mean_density, main = "Water Jellies")
 
 None of the four taxa investigated here show temporal autocorrelation.
 
-We can also inspect temporal autocorrelation at the scale of individual stations. To reduce the number of individual ACF plots, I have instead plotted histograms showing the distribution of lag 1 autocorrelation across station for each of our two four test species, along with time series plots for the stations that had significant autocorrelation at this lag:
+We can also inspect temporal autocorrelation at the scale of individual stations. To reduce the number of individual ACF plots, I have instead plotted histograms showing the distribution of lag 1 autocorrelation across stations for each of our two four test species, along with time series plots for the stations that had significant autocorrelation at this lag:
 
 ```{r by_station_temporal_autocorrelation_functions}
 as.data.frame(table(jsoes_tows$station)) %>% 
@@ -482,11 +485,15 @@ ggplot(water_jellies_sig_stations, aes(x = year, y = n_per_km, color = station))
 
 Despite the lack of temporal autocorrelation at the coastwide scale, for each taxon there are a number of stations that show temporal autocorrelation. 
 
-#### Spatial structure
+<br>
 
-To investigate spatial autocorrelation, we will calculate two metrics: Semivariance and Moran's I. Semivariance, visualized using a semivariogram, allows us to examine how spatial autocorrelation decays with increasing distance. In a semivariogram, high spatial autocorrelation appears as as a clear slope that then reaches a plateau at the distance at which there is no spatial autocorrelation, as seen in this image from Wikipedia:
+### Spatial structure
+
+To investigate spatial autocorrelation, we will calculate two metrics: Semivariance and Moran's I. Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure. Semivariance, visualized using a semivariogram, allows us to examine how spatial autocorrelation decays with increasing distance. In a semivariogram, high spatial autocorrelation appears as as a clear slope that then reaches a plateau at the distance at which there is no spatial autocorrelation, as seen in this image from Wikipedia:
 
 ![An example Variogram.](figures/semivariogram_wikipedia.png){width=50%}
+
+<br>
 
 To calculate the semivariance, we compute the variance of the difference between values (in our case, the log density) for different distances between samples. It is given by the following formula:
 
@@ -496,8 +503,6 @@ $$
 Where $h$ is the distance between two points, $x_i$ is the value of the log density at one location and $x_{i+h}$ is value of the log density at a location $h$ distance away. Multiplying by $\frac{1}{2}$ accounts for the fact that the formula accounts for the variance arising at both points.
 
 From the semivariance, we can then construct a semivariogram, which depicts the spatial autocorrelation of samples. A semivariogram takes the semivariance calculated for each pair of points and summarizes it by taking the mean value across each bin.
-
-Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure.
 
 Given that we did not see much evidence for temporal autocorrelation, we will examine the evidence for spatial autocorrelation on a year by year basis. As such, we will construct a separate semivariogram and calculate Moran's I separately for each year. To summarize the Moran's I results, we show the p-value for Moran's I for each year, with the blue dashed line showing a p-value of 0.05.
 
@@ -698,5 +703,5 @@ plot(x = moran_I_p_values_water_jellies$year, y = moran_I_p_values_water_jellies
 abline(a = 0.05, b = 0, lty = 2, col = "blue")
 ```
 
-Based on the Moran's I results, we see that there is evidence for spatial clustering in some years than others. There are also notably more years where the Moran's I value is significant for these taxa than there are for the two copepod species examined in the JSOES Bongo exploratory analysis.  However, there is not a clear slope to the semivariogram, which indicates that the degree of spatial autocorrelation at our sampling variation and that there is a lot of noise in our data. It suggests that all of our taxa are quite patchy, with these patches occurring on a scale less than the scale of the sampling resolution (which is 5 nm along a single transect orthogonal to the coast). This is similar to our results for two copepod species from the JSOES Bongo net data.
+Based on the Moran's I results, we see that there is evidence for spatial clustering in some years than others. There are also notably more years where the Moran's I value is significant for these taxa than there are for the two copepod species examined in the JSOES Bongo exploratory analysis. However, there is not a clear slope to the semivariogram, which indicates that there is not evidence for spatial autocorrelation at our sampling resolution. The spread of the points also indicates that our data is quite noisy. It suggests that all of our taxa are quite patchy, with these patches occurring on a scale less than the scale of the sampling resolution (which is 5 nm along a single transect orthogonal to the coast). This is similar to our results for two copepod species from the JSOES Bongo net data.
 

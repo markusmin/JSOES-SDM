@@ -28,6 +28,6 @@ navbar:
 output:
   html_document:
     theme: flatly
-    toc: false
+    toc: true
     toc_float: true
     toc_depth: 3
