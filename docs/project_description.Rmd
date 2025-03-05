@@ -58,9 +58,11 @@ To study the structure and function of the NCC food web, sampling with a much hi
 
 ## Project workflow
 
+The exact modeling workflow has not yet been established, but the general approach will be to fit SDMs to taxa from different surveys, and then explore whether the overlap/covariance between juvenile salmonids and other members of the food web predicts marine survival of these salmonids.
+
 Overview of methods:
 
-1. For each taxon, fit a spatiotemporal model to model the abundance and distribution in the JSOES survey area. Species distribution models will be fit using environmental covariates, including chl-a, temperature, and distance from the shore or shelf break.
+1. For each taxon, fit a spatiotemporal model to model the abundance and distribution in the JSOES survey area. Species distribution models will be fit using environmental covariates, including chl-a, temperature, and distance from the shore or shelf break. We will explore joint species distribution models, where we model the covariance between different species in the NCC in the same model.
 2. Estimate the degree of overlap between the distributions of different species in each year. Many metrics exist to quantify spatial predator-prey overlap [@Carroll2019].
 3. Fit a model using either SAR or adult returns as the response variable and metrics of overlap (in addition to other factors that we already know are important for survival, e.g., outmigration timing) as predictors.
 

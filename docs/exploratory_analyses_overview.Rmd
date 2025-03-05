@@ -1,0 +1,14 @@
+---
+title: "Exploratory Analyses overview"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+bibliography: "JSOES.bib"
+csl: "ecology.csl"
+output:
+  html_document
+---
+
+Exploratory analyses will be conducted for each of the survey data sources prior to embarking on the full modeling workflow. At this moment in time, only preliminary exploratory analyses are available for the June JSOES survey data (both Bongo and Trawl).
+
+The exploratory analyses on this website currently include an overview of the most common taxa in the dataset, visualizing time series of different taxa, mapping the distributions of different taxa within the survey region, and examining temporal and spatial autocorrelation. I am open to conducting different types of exploratory analyses, as identified by the data managers for different surveys.
+

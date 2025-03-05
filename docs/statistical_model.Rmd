@@ -1,0 +1,51 @@
+---
+title: "Statistical Model"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### Description
+
+This page describes the statistical model that we are proposing for this analysis.
+
+
+#### A basic model
+
+We are interested in marine survival, but adult returns is a good proxy for marine survival. We will begin by modeling adult returns using a simple linear regression:
+
+$$
+log(R_t) = \alpha + \beta x_t + \epsilon_t
+\\
+\epsilon_t \sim N(0, \sigma)
+$$
+
+In this equation, $R_i$ is the returns of adults in year $t$, $\alpha$ is an intercept term that describes the long-term expected value of adult returns, $\beta$ describes the log-linear response of adult returns to covariate $x_t$. $\epsilon_t$ describes the process error, which is distributed with mean 0 and variance $\sigma^2$. By adding additional covariates $x_{i,t}$ whose effect is described by parameters $\beta_i$, we can extend this model from a simple to a multiple linear regression:
+
+$$
+log(R_t) = \alpha + \beta_1 x_{1,t} + \beta_2 x_{2,t} + \epsilon_t
+\\
+\epsilon_t \sim N(0, \sigma)
+$$
+
+In analyses of marine survival, the covariates described by $x_{i,t}$ are typically things like indicators of prey availability, predator presence/abundance, large-scale oceanographic and atmospheric processes, and local indicators of physical processes. 
+
+#### Incorporating spatio-temporal overlap into our basic model
+
+In our multiple linear regression model, we could use overlap between juvenile salmon and their predators and prey as the covariates. For simplicity, we will write out our model using overlap with a single predator ($x_{predator,t}$) and a single prey ($x_{prey,t}$) species:
+
+$$
+log(R_t) = \alpha + \beta_1 x_{prey,t} + \beta_2 x_{predator,t} + \epsilon_t
+\\
+\epsilon_t \sim N(0, \sigma)
+$$
+
+#### The species distribution models 
+
+
+
+
+
+
+
+

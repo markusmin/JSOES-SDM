@@ -9,11 +9,7 @@ output:
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
-This page contains exploratory analysis for the Bongo net data from [JSOES](https://markusmin.github.io/JSOES-SDM/jsoes_survey_description.html). Please note that because the Bongo net tows occur during daylight hours, the tow composition is biased towards taxa/life stages that do not vertically migrate. While different life stages of some species are counted separately for this data, for this exploratory analysis we summed abundances across life stages. 
-
-## Data Overview
-
-We will first explore the most common and most abundant taxa in this dataset.
+This page contains exploratory analysis for the Bongo net data from [JSOES](https://markusmin.github.io/JSOES-SDM/jsoes_survey_description.html). Please note that because the Bongo net tows occur during daylight hours, the tow composition is biased towards taxa/life stages that do not vertically migrate.
 
 
 ```{r load_libraries_data}
@@ -101,7 +97,7 @@ bongo_catch_LH_collapse %>%
   ungroup() -> bongo_catch_LH_collapse
 ```
 
-```{r load_spatial_data, cache = TRUE}
+```{r load_spatial_data}
 #### Spatial data ####
 usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp", quiet = TRUE)
 # load BC
@@ -167,7 +163,7 @@ bongo_freq_occ[1:10, c("genus_species", "common_name", "prop_samples")] %>%
 ```
 
 
-```{r create_basemap, cache = TRUE}
+```{r create_basemap}
 # create base map
 survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
   geom_sf() +
@@ -231,15 +227,13 @@ plot_distribution <- function(data, taxon_name){
 ```
 ## Annual time series
 
-This Shiny app can be used to explore the abundances of different taxa across the full length of the time series. In this Shiny app, I take the mean log density across the survey region to create a simple index of abundance.
+This Shiny app can be used to explore the abundances of different taxa across the full length of the time series.
 
 <iframe src="https://markusmin.shinyapps.io/jsoes_bongo_annual_time_series/" style="border:none;width:1000px;height:500px;"></iframe>
 
-## Plotting distributions of some common taxa
+To demonstrate potential analyses that could be applied to different taxa, we will focus for now on copepods. In the JSOES Bongo data *Calanus marshallae* is the most abundant cold-water copepod and *Calanus pacificus* is the most abundant warm-water coepod. To demonstrate how we can visualize the abundance of these two key copepod species in space and time, we plot their density in survey catch below.
 
-I am currently developing a Shiny app that will allow you to visualize the distributions of different taxa. For now, I provide static maps of two focal taxa for this survey:  *Calanus marshallae* (an abundant cold-water copepod) and *Calanus pacificus* (an abundant warm-water coepod). To demonstrate how we can visualize the abundance of these two key copepod species in space and time, we plot their density in survey catch below.
-
-```{r map_calanus, cache = TRUE}
+```{r map_calanus}
 cama_dist_plot <- plot_distribution(data = subset(bongo_catch_LH_collapse, genus_species == "Calanus marshallae"),
                                     taxon_name = "Calanus marshallae")
 
@@ -258,6 +252,8 @@ cama_dist_plot
 capa_dist_plot
 
 ```
+
+By taking the mean log density across the survey region, we can also create a crude index of abundance.
 
 ```{r calanus_time_series}
 create_time_series <- function(data, taxon){
@@ -280,10 +276,19 @@ create_time_series(data = subset(bongo_catch_LH_collapse, genus_species == "Cala
 
 cama_ts %>% 
   bind_rows(., capa_ts) -> calanus_ts
+
+ggplot(calanus_ts, aes(x = year, y = mean_density, color = taxon)) +
+  geom_point() +
+  geom_line() +
+  ylab("Mean log (density/m3 + 1)") +
+  scale_color_manual(values = c("Calanus marshallae" = "#67a9cf", "Calanus pacificus" = "#b2182b"))
+
+
 ```
 
 <br>
 
+From the maps and the indices of abundance, we see that *Calanus marshallae* is usually more abundant than *Calanus pacificus*, except in warm years (e.g., 2015-2017, which aligns with the Blob).
 
 ## Temporal and Spatial Autocorrelation
 
@@ -324,13 +329,160 @@ acf(capa_ts$mean_density, main = "Calanus pacificus, mean log density")
 
 At the coastwide scale the *Calanus marshallae* time series does not show temporal autocorrelation, but the *Calanus pacificus* time series does at a lag of one year.
 
-I also investigated temporal autocorrelation at the scale of individual stations, and found little evidence for temporal autocorrelation at this scale for these two taxa.
+We can also inspect temporal autocorrelation at the scale of individual stations. To reduce the number of individual ACF plots, I have instead plotted histograms showing the distribution of lag 1 autocorrelation across stations for each of our two focal copepod species, along with time series plots for the stations that had significant autocorrelation at this lag:
+
+```{r by_station_temporal_autocorrelation_functions}
+as.data.frame(table(bongo_tows$station)) %>% 
+  filter(Freq >= 10) %>% 
+  dplyr::rename(station = Var1) -> annual_stations
+
+station_subset <- annual_stations$station
+
+lag1_AC_station <- function(data, taxon, station_name){
+  data %>% 
+    filter(station == station_name,
+           genus_species == taxon) %>% 
+    dplyr::select(genus_species, sum_of_density_number_m3, year, station) %>% 
+    mutate(log_density = log(sum_of_density_number_m3 + 1)) -> data_subset
+  
+  # if we're missing years, fill them in with NAs
+  data_subset %>% 
+    complete(., year = 1999:2023, fill = list(genus_species = taxon, 
+                                              sum_of_density_number_m3 = NA,
+                                              log_density = NA,
+                                              station = station_name)) -> data_subset
+  
+  acf_obj <- acf(data_subset$log_density, na.action = na.pass,
+                 plot = FALSE)
+  nn <- acf_obj$n.used
+  upper_95_CI <- -1/nn + 2/sqrt(nn)
+  
+  lag1_autocorrelation <- acf_obj$acf[2,1,1]
+  
+  sig <- ifelse(lag1_autocorrelation > upper_95_CI, "yes", "no")
+  
+  station_lag1_ac <- data.frame(station = station_name, lag1_ac = lag1_autocorrelation, 
+                                taxon = taxon, significant = sig)
+  
+  return(station_lag1_ac)
+}
+
+plot_station_ts <- function(data, taxon, station_name){
+  data %>% 
+    filter(station == station_name,
+           genus_species == taxon) %>%
+    mutate(log_density = log(sum_of_density_number_m3 + 1)) %>% 
+    dplyr::select(genus_species, log_density, year, station) -> data_subset
+  
+  # if we're missing years, fill them in with NAs
+  data_subset %>% 
+    complete(., year = 1999:2023, fill = list(genus_species = taxon, 
+                                              sum_of_density_number_m3 = NA,
+                                              log_density = NA,
+                                              station = station_name)) -> data_subset
+  
+  plot <- ggplot(data_subset, aes(x = year, y = log_density, color = genus_species)) +
+    geom_point() +
+    geom_line() +
+    ylab("log density + 1 (N/m3)") +
+    ggtitle(station_name) +
+    scale_color_manual(values = c("Calanus marshallae" = "#67a9cf", "Calanus pacificus" = "#b2182b"))
+  
+  print(plot)
+  return(plot)
+}
+```  
+
+```{r by_station_temporal_autocorrelation_calanus}
+# Calanus marshallae
+cama_lag1_AC <-  lag1_AC_station(data = bongo_catch_LH_collapse,
+                           taxon = "Calanus marshallae",
+                           station_name = station_subset[1])
+
+for (i in 2:length(station_subset)) {
+  
+  station_lag1_AC <- lag1_AC_station(data = bongo_catch_LH_collapse,
+                           taxon = "Calanus marshallae",
+                           station_name = station_subset[i])
+  
+  cama_lag1_AC %>% 
+    bind_rows(., station_lag1_AC) -> cama_lag1_AC
+  
+}
+
+ggplot(cama_lag1_AC, aes(x = lag1_ac, fill = significant))+
+  geom_histogram() + 
+  ggtitle("Calanus marshallae Lag 1 autocorrelation")+
+  xlab("Lag 1 autocorrelation")
+
+# Plot the time series for the one station with significant lag 1 autocorrelation (LP06)
+cama_sig_stations <- subset(bongo_catch_LH_collapse, genus_species == "Calanus marshallae" &
+         station %in% subset(cama_lag1_AC, significant == "yes")$station)
+
+ggplot(cama_sig_stations, aes(x = year, y = sum_of_density_number_m3, color = station)) +
+    geom_point() +
+    geom_line() +
+    ylab("density (N/m3)") +
+    ggtitle("Calanus marshallae, stations with significant lag 1 autocorrelation") +
+    scale_color_tableau(palette = "Tableau 10")
+
+# Calanus pacificus
+capa_lag1_AC <-  lag1_AC_station(data = bongo_catch_LH_collapse,
+                           taxon = "Calanus pacificus",
+                           station_name = station_subset[1])
+
+for (i in 2:length(station_subset)) {
+  
+  station_lag1_AC <- lag1_AC_station(data = bongo_catch_LH_collapse,
+                           taxon = "Calanus pacificus",
+                           station_name = station_subset[i])
+  
+  capa_lag1_AC %>% 
+    bind_rows(., station_lag1_AC) -> capa_lag1_AC
+  
+}
+
+
+ggplot(capa_lag1_AC, aes(x = lag1_ac, fill = significant))+
+  geom_histogram() + 
+  ggtitle("Calanus pacificus Lag 1 autocorrelation")+
+  xlab("Lag 1 autocorrelation")
+
+capa_sig_stations <- subset(bongo_catch_LH_collapse, genus_species == "Calanus pacificus" &
+         station %in% subset(capa_lag1_AC, significant == "yes")$station)
+
+ggplot(capa_sig_stations, aes(x = year, y = sum_of_density_number_m3, color = station)) +
+    geom_point() +
+    geom_line() +
+    ylab("density (N/m3)") +
+    ggtitle("Calanus pacificus, stations with significant lag 1 autocorrelation") +
+    scale_color_tableau(palette = "Tableau 10")
+
+```
+
+There is higher temporal autocorrelation at the scale of individual stations for *Calanus pacificus*, which aligns with our coastwide results. Given the relatively short generation times of these copepods, we might expect that the temporal autocorrelation of copepod abundance is driven by the persistence of oceanographic conditions, such as the consecutive years of high abundance during the Blob.
 
 <br>
 
 ### Spatial structure
 
-To investigate spatial autocorrelation, I calculated a metric known as Moran's I. Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure. Given that we did not see much evidence for temporal autocorrelation, I calculated Moran's I separately for each year. To summarize the Moran's I results, I show the p-value for Moran's I for each year, with the blue dashed line showing a p-value of 0.05.
+To investigate spatial autocorrelation, we will calculate two metrics: Semivariance and Moran's I. Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure. Semivariance, visualized using a semivariogram, allows us to examine how spatial autocorrelation decays with increasing distance. In a semivariogram, high spatial autocorrelation appears as as a clear slope that then reaches a plateau at the distance at which there is no spatial autocorrelation, as seen in this image from Wikipedia:
+
+![An example Variogram.](figures/semivariogram_wikipedia.png){width=50%}
+
+
+<br>
+
+To calculate the semivariance, we compute the variance of the difference between values (in our case, the log density) for different distances between samples. It is given by the following formula:
+
+$$
+    \gamma(h) = \frac{1}{2} \mathrm{Var}( \log(x_i) - \log(x_{i+h}) )
+$$
+Where $h$ is the distance between two points, $x_i$ is the value of the log density at one location and $x_{i+h}$ is value of the log density at a location $h$ distance away. Multiplying by $\frac{1}{2}$ accounts for the fact that the formula accounts for the variance arising at both points.
+
+From the semivariance, we can then construct a semivariogram, which depicts the spatial autocorrelation of samples. A semivariogram takes the semivariance calculated for each pair of points and summarizes it by taking the mean value across each bin.
+
+Given that we did not see much evidence for temporal autocorrelation, we will examine the evidence for spatial autocorrelation on a year by year basis. As such, we will construct a separate semivariogram and calculate Moran's I separately for each year. To summarize the Moran's I results, we show the p-value for Moran's I for each year, with the blue dashed line showing a p-value of 0.05.
 
 ```{r spatial_autocorrelation_functions}
 # If you wanted to add a best fit line:
@@ -405,6 +557,12 @@ bongo_catch_LH_collapse %>%
   summarise(year_total = sum(sum_of_density_number_m3)) %>% 
   filter(year_total > 0) %>% 
   arrange(year) -> cama_year_counts
+
+for (i in 1:length(cama_year_counts$year)){
+  print(fit_variogram_one_year(data = bongo_catch_LH_collapse, 
+                         taxon = "Calanus marshallae",
+                         select_year = cama_year_counts$year[i]))
+}
 ```
 
 ```{r spatial_autocorrelation_cama_moran_I}
@@ -441,6 +599,12 @@ bongo_catch_LH_collapse %>%
   summarise(year_total = sum(sum_of_density_number_m3)) %>% 
   filter(year_total > 0) %>% 
   arrange(year) -> capa_year_counts
+
+for (i in 1:length(capa_year_counts$year)){
+  print(fit_variogram_one_year(data = bongo_catch_LH_collapse, 
+                         taxon = "Calanus pacificus",
+                         select_year = capa_year_counts$year[i]))
+}
 ```
 
 ```{r spatial_autocorrelation_capa_moran_I}
@@ -460,4 +624,49 @@ plot(x = moran_I_p_values_capa$year, y = moran_I_p_values_capa$p_value,
 abline(a = 0.05, b = 0, lty = 2, col = "blue")
 ```
 
-Based on the Moran's I results, we see that there is evidence for spatial clustering in most years, especially for *Calanus pacificus*.
+Based on the Moran's I results, we see that there is evidence for spatial clustering in some years but not others. However, there is not a clear slope to the semivariogram, which indicates that there is not evidence for spatial autocorrelation at our sampling resolution. The spread of the points also indicates that our data is quite noisy. These exploratory results suggest that copepods are quite patchy, with these patches occurring on a scale less than the scale of the sampling resolution (which is 5 nm along a single transect orthogonal to the coast).
+
+
+```{r eval = FALSE}
+# code is unused but I'm too scared to delete it
+
+## CAMA, 2011
+cama_2011 <- subset(bongo_catch_LH_collapse, genus_species == "Calanus marshallae" & year == 2011)
+coordinates(cama_2011) = ~dec_long+dec_lat
+
+# Isotropic variogram
+cama_2011_iso_v <- variogram(log(sum_of_density_number_m3+1)~1, data = cama_2011, cloud=F)
+# Fit a variogram model
+cama_2011_bestfit <- fit.variogram(cama_2011_iso_v, model.choices)
+
+plot(cama_2011_iso_v, pl=F, model=cama_2011_bestfit,col="black", cex=1, lwd=0.5,lty=1,pch=20,
+     main="Variogram: Calanus marshallae, 2011",xlab="Distance (km)",ylab="Semivariance")
+
+# Unused plots
+# plot(cama_2011_iso_v, main = "Variogram - default", xlab = "Separation distance (m)")
+# cama_2011_v.cloud <- variogram(log(sum_of_density_number_m3+1)~1, cama_2011, cloud = T)
+# plot(cama_2011_v.cloud, main = "Variogram cloud", xlab = "Separation distance (m)")
+# 
+# # Anisotropic variogram
+# cama_2011_v.map<-variogram(log(sum_of_density_number_m3+1)~1, cama_2011, map = TRUE,
+#                            cutoff = 1, width = 1/17)
+# 
+# plot(cama_2011_v.map, col.regions = bpy.colors(64),
+#      main="Variogram Map",
+#      xlab="x",
+#      ylab="y")
+
+
+
+## CAMA, 2005
+cama_2005 <- subset(bongo_catch_LH_collapse, genus_species == "Calanus marshallae" & year == 2005)
+coordinates(cama_2005) = ~dec_long+dec_lat
+
+# Isotropic variogram
+cama_2005_iso_v <- variogram(log(sum_of_density_number_m3+1)~1, data = cama_2005, cloud=F)
+# Fit a variogram model
+cama_2005_bestfit <- fit.variogram(cama_2005_iso_v, model.choices)
+
+plot(cama_2005_iso_v, pl=F, model=cama_2005_bestfit,col="black", cex=1, lwd=0.5,lty=1,pch=20,
+     main="Variogram: Calanus marshallae, 2005",xlab="Distance (km)",ylab="Semivariance")
+```

@@ -21,6 +21,8 @@ navbar:
         href: hake_survey_description.html
     - text: "Exploratory Analyses"
       menu:  
+      - text: "Overview"
+        href: exploratory_analyses_overview.html   
       - text: "JSOES Bongo"
         href: bongo_exploratory.html   
       - text: "JSOES Trawl"
