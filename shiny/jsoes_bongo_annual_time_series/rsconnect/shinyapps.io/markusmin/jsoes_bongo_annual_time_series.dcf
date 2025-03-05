@@ -1,0 +1,10 @@
+name: jsoes_bongo_annual_time_series
+title:
+username: markusmin
+account: markusmin
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14168063
+bundleId: 9897104
+url: https://markusmin.shinyapps.io/jsoes_bongo_annual_time_series/
+version: 1

@@ -1,0 +1,10 @@
+name: survey_data_exploration
+title:
+username: markusmin
+account: markusmin
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14158362
+bundleId: 9897433
+url: https://markusmin.shinyapps.io/survey_data_exploration/
+version: 1
