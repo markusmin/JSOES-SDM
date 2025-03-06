@@ -177,7 +177,12 @@ jsoes_freq_occ[1:10, ] %>%
 
 This Shiny app can be used to explore the abundances of different taxa across the full length of the time series. In this Shiny app, I take the mean log density across the survey region to create a simple index of abundance.
 
-<iframe src="https://markusmin.shinyapps.io/jsoes_trawl_annual_time_series/" style="border:none;width:1000px;height:500px;"></iframe>
+```{r}
+knitr::include_app(url = "https://markusmin.shinyapps.io/jsoes_trawl_annual_time_series/")
+# <iframe src="https://markusmin.shinyapps.io/jsoes_trawl_annual_time_series/" style="border:none;width:1000px;height:500px;"></iframe>
+```
+
+
 
 
 

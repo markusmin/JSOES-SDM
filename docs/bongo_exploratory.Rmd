@@ -233,7 +233,11 @@ plot_distribution <- function(data, taxon_name){
 
 This Shiny app can be used to explore the abundances of different taxa across the full length of the time series. In this Shiny app, I take the mean log density across the survey region to create a simple index of abundance.
 
-<iframe src="https://markusmin.shinyapps.io/jsoes_bongo_annual_time_series/" style="border:none;width:1000px;height:500px;"></iframe>
+```{r}
+knitr::include_app(url = "https://markusmin.shinyapps.io/jsoes_bongo_annual_time_series/")
+# <iframe src="https://markusmin.shinyapps.io/jsoes_bongo_annual_time_series/" style="border:none;width:1000px;height:500px;"></iframe>
+```
+
 
 ## Plotting distributions of some common taxa
 
