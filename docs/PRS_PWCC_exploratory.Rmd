@@ -1,0 +1,429 @@
+---
+title: "PRS + PWCC Exploratory Analysis"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output:
+  html_document
+---
+This page contains exploratory analysis for the trawl data from the  [Pre-Recruit and Pacific Whiting Conservation Cooperative surveys](https://markusmin.github.io/JSOES-SDM/PRS_survey_description.html). The PWCC survey covered our study area from 2005-2009, and the pre-recruit survey covers the years 2011-2024 (excluding 2012 and 2020).
+
+## Data Overview
+
+We will first explore the most common and most abundant taxa in this dataset.
+
+The comment field in this dataset are typically used to note 1) details about the data collection (e.g., "2 unmeasured"), 2) further details on the composition of that particular taxon in that haul (e.g., "12 wild; 24 hatchery"), or a more specific species ID of that taxon (e.g., "Benthocodon pedunculata" when the taxon is "Hydrozoa").
+
+```{r chunk-options, message = FALSE, echo = FALSE, warning = FALSE}
+# set chunk options
+knitr::opts_chunk$set(message = FALSE, echo = FALSE, warning = FALSE)
+```
+
+
+```{r load-libraries-reformat-data}
+library(readxl)
+library(here)
+library(janitor)
+library(tidyverse)
+library(kableExtra)
+library(sf)
+library(gstat)
+library(sp)
+library(ggthemes)
+library(ape)
+library(RODBC)
+
+#### load and reformat the PWCC data ####
+## Load "Haul" sheet
+PWCC_MWT_haul <- clean_names(read_xlsx(here::here("Data", "PWCC.dataforMarcus.xlsx"), sheet = "PWCC.haul"))
+
+## Load "Catch" sheet
+PWCC_MWT_catch <- clean_names(read_xlsx(here::here("Data", "PWCC.dataforMarcus.xlsx"), sheet = "PWCC.catch"))
+
+## Load "species.codes" sheet
+PWCC_MWT_species_codes <- clean_names(read_xlsx(here::here("Data", "PWCC.dataforMarcus.xlsx"), sheet = "species.codes"))
+
+## expand the catch data so that there are zeros for every taxon
+# we want different life stages of the same species to be classified as different species
+# the final output should have this many rows:
+# PWCC re-used haul numbers by cruise
+length(unique(paste0(PWCC_MWT_catch$species, " - ", PWCC_MWT_catch$maturity))) * length(unique(paste0(PWCC_MWT_catch$cruise, "-", PWCC_MWT_catch$haul_no)))
+# table(PWCC_MWT_catch$cruise, PWCC_MWT_catch$haul_no)
+
+PWCC_MWT_catch %>% 
+  complete(nesting(cruise, haul_no), nesting(species, maturity),
+           fill = list(total_no = 0)) -> PWCC
+
+
+# join catch and species codes
+PWCC %>% 
+  left_join(PWCC_MWT_species_codes, by = "species") -> PWCC
+
+# They're off by 35
+# some hauls just have more data
+sort(-table(paste0(PWCC$cruise, PWCC$haul_no)))
+
+subset(PWCC, cruise == "PWCC02" & haul_no == "5")$common_name == subset(PWCC, cruise == "PWCC01" & haul_no == "35")$common_name
+subset(PWCC, cruise == "PWCC02" & haul_no == "5")
+subset(PWCC, cruise == "PWCC01" & haul_no == "35")
+# in this case, it looks like maybe there are duplicate observations in cruise PWCC02 haul_no 5?
+# see observations for barracudina and dover sole
+
+# let's look across all tows for duplicate observations
+PWCC$possible_duplicate <- duplicated(PWCC)
+subset(PWCC, possible_duplicate == TRUE)
+
+# check one
+subset(PWCC, cruise == "PWCC01" & haul_no == "76")
+# yep, there are some duplicates. But this doesn't explain all of the extra observations.
+
+# Let's remove the duplicates and look again at which are duplicated
+PWCC_nodup <- subset(PWCC, possible_duplicate == FALSE)
+sort(-table(paste0(PWCC_nodup$cruise, "-", PWCC_nodup$haul_no)))
+subset(PWCC, cruise == "PWCC01" & haul_no == "77")
+subset(PWCC, cruise == "PWCC01" & haul_no == "77")$common_name == subset(PWCC, cruise == "PWCC01" & haul_no == "35")$common_name
+subset(PWCC, cruise == "PWCC01" & haul_no == "77")
+subset(PWCC, cruise == "PWCC01" & haul_no == "35")
+# ok here it looks like we have the same taxon entered twice, but different numbers.
+# I think that maybe then we don't actually have duplicates, but just double entries for
+# some taxa. Perhaps someone missed one and then entered it at the end.
+
+# Let's collapse by species + maturity within a haul
+PWCC %>% 
+  group_by(cruise, haul_no, species, maturity, common_name, sci_name, maturity_codes, species_group, notes) %>% 
+  summarise_if(is.numeric, sum, ) %>% 
+  ungroup() -> PWCC
+
+# join catch and haul info
+PWCC %>% 
+  left_join(PWCC_MWT_haul, by = c("cruise", "haul_no")) -> PWCC
+
+```
+
+``` {r}
+##### load and reformat the PRS data #####
+## Load "Haul" sheet
+PRS_MWT_haul <- clean_names(read_xls(here::here("Data", "PreRecruit MWT Master.xls"), sheet = "Haul"))
+
+## Load "Catch" sheet
+# for the catch data, we need to manually set one column to text
+PRS_MWT_catch_column_types <- c("text", "numeric", "numeric", "numeric", "numeric", "numeric",
+                                "text", "text", "numeric", "numeric", "numeric", "numeric",
+                                "numeric", "text",  "text", "numeric", "text")
+PRS_MWT_catch <- clean_names(read_xls(here::here("Data", "PreRecruit MWT Master.xls"), 
+                                      sheet = "Catch", col_types = PRS_MWT_catch_column_types))
+
+## Load "Krill Catch" sheet
+PRS_MWT_krill_catch <- clean_names(read_xls(here::here("Data", "PreRecruit MWT Master.xls"), sheet = "Krill Catch"))
+
+## Load "Krill Number"
+PRS_MWT_krill_number <- clean_names(read_xls(here::here("Data", "PreRecruit MWT Master.xls"), sheet = "Krill Number"))
+
+## Transform data
+# For both haul and catch, a couple of transect_new IDs got converted to character weird, so let's manually fix them
+PRS_MWT_haul %>% 
+  mutate(transect_new = ifelse(transect_new == "46.200000000000003", "46.2", transect_new)) -> PRS_MWT_haul
+
+PRS_MWT_catch %>% 
+  mutate(transect_new = ifelse(transect_new == "46.200000000000003", "46.2", transect_new)) -> PRS_MWT_catch
+
+
+### create a unique identifier for each haul in both the haul and the catch data
+PRS_MWT_haul %>% 
+  mutate(haul_id = paste0(year, "_", month, "_", day, "-", transect_new, "_", station_new)) %>% 
+  relocate(haul_id) -> PRS_MWT_haul
+
+# add a unique identifier for those deep/middle/shallow tows in 2016
+PRS_MWT_haul %>% 
+  mutate(haul_id = ifelse(grepl("Deep|Shallow|Middle", original_station),
+                          paste0(year, "_", month, "_", day, "-", transect_new, "_", station_new, "_", original_station), haul_id)) -> PRS_MWT_haul
+
+PRS_MWT_catch %>% 
+  mutate(haul_id = paste0(year, "_", month, "_", day, "-", transect_new, "_", station_new)) %>% 
+  relocate(haul_id) -> PRS_MWT_catch
+
+# add a unique identifier for those deep/middle/shallow tows in 2016
+PRS_MWT_catch %>% 
+  mutate(haul_id = ifelse(grepl("Deep|Shallow|Middle", original_station),
+                          paste0(year, "_", month, "_", day, "-", transect_new, "_", station_new, "_", original_station), haul_id)) -> PRS_MWT_catch
+
+## expand the catch data so that there are zeros for every taxon
+# we want different life stages of the same species to be classified as different species
+# the final output should have this many rows:
+length(unique(paste0(PRS_MWT_catch$taxon, " - ", PRS_MWT_catch$maturity))) * length(unique(PRS_MWT_catch$haul_id))
+# Our output actually has one extra row; this is because in one tow, there are two entries for Hydrozoa
+# with different comments for different species
+
+
+PRS_MWT_catch %>% 
+  complete(nesting(haul_id, cruise, year, month, day, original_haul_number, 
+                   new_haul_number, original_station, transect_new, station_new, 
+                   swfcs_station, swfcs_transect, distance_from_shore_km,
+                   start_depth_m), nesting(taxon, maturity),
+           fill = list(number = 0)) -> PRS_MWT_catch
+
+# join the haul information with the catch data
+PRS_MWT_catch %>% 
+  left_join(dplyr::select(PRS_MWT_haul, c(setdiff(colnames(PRS_MWT_haul),
+                                                colnames(PRS_MWT_catch)), haul_id)), by = "haul_id") -> PRS_MWT_catch
+```
+
+```{r convert_to_sf}
+# turn this into an sf object
+st_as_sf(PRS_MWT_catch, coords = c("start_longitude", "start_latitude"), crs = 4326) -> PRS_MWT_catch_sf
+
+# change CRS to UTM zone 10 (to work in meters)
+UTM_zone_10_crs <- 32610
+PRS_MWT_catch_sf_proj <- sf::st_transform(PRS_MWT_catch_sf, crs = UTM_zone_10_crs)
+
+# make this projection into kilometers to help with interpretability
+PRS_MWT_catch_sf_proj_km <- st_as_sf(PRS_MWT_catch_sf_proj$geometry/1000, crs = UTM_zone_10_crs)
+
+# extract geometry
+as.data.frame(st_coordinates(PRS_MWT_catch_sf_proj_km)) -> PRS_MWT_catch_km
+# add this back to jsoes_long (X and Y now represent eastings and northings in km)
+bind_cols(PRS_MWT_catch, PRS_MWT_catch_km) -> PRS_MWT_catch
+```
+
+
+```{r common_taxa}
+
+## total density
+PRS_MWT_catch %>% 
+  group_by(taxon) %>% 
+  summarise(mean_number = mean(number),
+            sd_number = sd(number)) %>% 
+  arrange(desc(mean_number)) -> PRS_density_sums
+
+PRS_density_sums[1:10,] %>% 
+  mutate(mean_number = round(mean_number, 1),
+         sd_number = round(sd_number, 1)) %>% 
+  kbl(caption = "Top ten taxa by mean density.") %>% 
+  kable_styling(latex_options = "HOLD_position")
+
+## frequency of occurrence
+
+# get count of each genus_species
+PRS_MWT_catch %>% 
+  filter(number > 0) %>% 
+  count(taxon) %>% 
+  arrange(desc(n)) %>% 
+  mutate(prop_samples = n/nrow(PRS_MWT_haul)) -> PRS_MWT_catch_freq_occur
+
+PRS_MWT_catch_freq_occur[1:10, ] %>% 
+  mutate(prop_samples = round(prop_samples, 2)) %>% 
+  kbl(caption = "Top ten taxa by frequency of occurrence.") %>% 
+  kable_styling(latex_options = "HOLD_position")
+
+```
+
+
+```{r load_spatial_data, cache = TRUE}
+#### Spatial data ####
+usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp", quiet = TRUE)
+# load BC
+CAN_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp", quiet = TRUE)
+BC_spdf <- filter(CAN_spdf, PRENAME == "British Columbia")
+BC_proj <- st_transform(BC_spdf, crs = 4326)
+
+
+# crop them to our desired area
+US_west_coast <- sf::st_crop(usa_spdf,
+    c(xmin = -126, ymin = 40, xmax = -123, ymax = 48.5))
+
+BC_coast <- sf::st_crop(BC_proj,
+    c(xmin = -126, ymin = 40, xmax = -123, ymax = 48.5))
+
+
+
+# convert both shapefiles to a different projection (UTM zone 10) so that they can be plotted with the sdmTMB output
+UTM_zone_10_crs <- 32610
+
+US_west_coast_proj <- sf::st_transform(US_west_coast, crs = UTM_zone_10_crs)
+BC_coast_proj <- sf::st_transform(BC_coast, crs = UTM_zone_10_crs)
+
+# make this projection into kilometers
+US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+BC_coast_proj_km <- st_as_sf(BC_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+```
+
+```{r create_basemap, cache = TRUE}
+# create base map
+survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
+  geom_sf() +
+  geom_sf(data = BC_coast_proj_km) +
+  # coord_sf(ylim = c(4922.052, 5342.052), xlim = c(334.8638, 404.8638)) +
+  # coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+  # temporary fix for lat/long on axes to just get rid of them - start here to actually fix: https://forum.posit.co/t/converting-axes-to-lat-lon/27181
+
+survey_area_basemap <- ggplot(US_west_coast) +
+  geom_sf() +
+  geom_sf(data = BC_coast) +
+  coord_sf(ylim = c(40,48.5),  xlim = c(-126, -123)) +
+  scale_x_continuous(breaks = c(124,125,126)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+```
+
+
+
+## Annual time series
+
+This Shiny app can be used to explore the abundances of different taxa across the full length of the time series. In this Shiny app, I take the mean log density across the survey region to create a simple index of abundance.
+
+```{r}
+knitr::include_app(url = "https://markusmin.shinyapps.io/jsoes_trawl_annual_time_series/", height = "700px")
+# <iframe src="https://markusmin.shinyapps.io/jsoes_trawl_annual_time_series/" style="border:none;width:1000px;height:500px;"></iframe>
+```
+
+
+
+
+
+
+## Plotting distributions of some common taxa
+
+Here are some static maps of common taxa:
+- Pacific sanddabs (very tasty!) - Citharichthys sordidus
+
+```{r map_salmon, cache = TRUE}
+plot_distribution <- function(data, taxon_name){
+  # keep only this taxon
+  taxon_data <- subset(data, taxon == taxon_name)
+  
+  # create facet_wrap plot for distribution across all years
+  taxon_data %>% 
+    mutate(encounter = ifelse(number == 0, "zero", "non-zero")) -> taxon_data
+  
+survey_area_basemap +
+      geom_point(data = taxon_data, aes(x = start_longitude, y = start_latitude, size = number, color = encounter),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("zero" = "#fc9272", "non-zero" = "#2ca25f")) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle(taxon_name) +
+    theme(legend.position = "right",
+      legend.key.height = unit(0.35, "cm"),
+        legend.key.width = unit(0.25, "cm"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        legend.spacing.y = unit(0.01, 'cm')) -> species_distribution_plot
+  
+  return(species_distribution_plot)
+}
+
+sanddab_dist_plot <- plot_distribution(data = PRS_MWT_catch, taxon_name = "Citharichthys sordidus")
+
+sanddab_dist_plot
+
+euphausiidae_dist_plot <- plot_distribution(data = PRS_MWT_catch, taxon_name = "Euphausiidae")
+euphausiidae_dist_plot
+```
+
+## In situ environmental data
+
+Except for 2013, the following environmental data was collected in situ by the PRS:
+
+- Surface Temp (C)
+  - Surface temp was also collected in 2013
+- Temperature (30m C)	
+- Fluorescence (30m V)	
+- Salinity (30m PSU)	
+- Density (30m sigma-theta, kg/m3)	
+- Dissolved Oxygen (30m ml/l)
+
+
+```{r environmental_data}
+# SST vs temperature at 30 m
+
+ggplot(PRS_MWT_haul, aes(x = surface_temp_o_c, y = temperature_30m_o_c)) +
+  geom_point() +
+  ggtitle("Temperature at 30 m vs. SST")
+
+```
+
+## Krill investigation
+
+Krill get special treatment in the PRS data, with them being recorded in three separate sheets. These three sheets all sum to the same total number.
+
+```{r}
+ggplot(subset(PRS_MWT_catch, taxon == "Euphausiidae"), aes(x = year, y = number)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Krill from catch sheet")
+
+ggplot(PRS_MWT_krill_catch, aes(x = year, y = number)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Krill from krill catch sheet")
+
+PRS_MWT_krill_number$total_krill <- rowSums(PRS_MWT_krill_number[,14:20])
+
+ggplot(PRS_MWT_krill_number, aes(x = year, y = total_krill)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Krill from krill number sheet")
+
+krill_sums <- data.frame(year = unique(PRS_MWT_catch$year),
+                         catch_sum = rep(NA, length(unique(PRS_MWT_catch$year))),
+                         krill_catch_sum = rep(NA, length(unique(PRS_MWT_catch$year))),
+                         krill_number_sum = rep(NA, length(unique(PRS_MWT_catch$year))))
+
+for (i in 1:length(krill_sums$year)){
+  krill_sums$catch_sum[i] <- sum(subset(PRS_MWT_catch, taxon == "Euphausiidae" & year == krill_sums$year[i])$number)
+  
+  krill_sums$krill_catch_sum[i] <- sum(subset(PRS_MWT_krill_catch, year == krill_sums$year[i])$number)
+  
+  krill_sums$krill_number_sum[i] <- sum(subset(PRS_MWT_krill_number, year == krill_sums$year[i])$total_krill)
+}
+
+```
+
+## Selecting taxa to model
+
+
+Processing taxa - there are many notes from the spreadsheet that we will use to help us interpret taxon IDs.
+"*Did not speciate Gonatus after 2019."
+
+- There are four members of family Gonatidae in the dataset: "Gonatidae", "Gonatopsis borealis", "Gonatus onyx", and "Gonatus spp."
+- There is a clear break in species IDs before and after 2020. What is odd though is that only one member of the genus Gonatus was ever identified before 2019, so it's confusing that they would note that they stopped identifying to species level?
+
+```{r}
+subset(PRS_MWT_catch, taxon %in% c("Gonatidae", "Gonatopsis borealis", "Gonatus onyx", "Gonatus spp.")) -> PRS_gonatidae
+
+ggplot(PRS_gonatidae, aes(x = year, y = number, fill = taxon)) +
+  geom_bar(stat = "identity")
+```
+
+
+
+Our criteria for generating SDMs are 1) data availability and 2) theoretical interactions with juvenile salmon.
+
+Friedman et al. identified 31 salmon forage species.
+
+
+```{r common_taxa}
+friedman_2018_taxa <- c("")
+write.csv(data.frame(taxon = sort(unique(PRS_density_sums$taxon))), file = here::here("Data", "PRS_taxa.csv"), row.names = FALSE)
+
+PRS_density_sums
+
+PRS_MWT_catch_freq_occur
+```
+
+
