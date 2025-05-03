@@ -183,6 +183,39 @@ knitr::include_app(url = "https://markusmin.shinyapps.io/jsoes_trawl_annual_time
 ```
 
 
+## What salmon are we getting?
+
+By frequency of occurrence:
+- Coho salmon yearling (coho_salmon_yearling) - 55%
+  - My understanding is that if these are Columbia River Coho, they're most likely from downstream of BON
+  and therefore aren't good candidates for SAR estimates
+- Chinook yearling Interior Fall (chinook_salmon_yearling_interior_fa) - 33%
+  - Should double check where these are coming from
+- Chum salmon juvenile (chum_salmon_juvenile) - 30%
+  - I don't think people really care about Chum. Sorry Chum.
+- Chinook yearling Interior Spring (chinook_salmon_yearling_interior_sp) - 25%
+  - definitely include
+- Chinook salmon mixed age juvenile (chinook_salmon_mixed_age_juvenile) - 25%
+  - unknown origin?
+- Chinook subyearling Interior Fall (chinook_salmon_subyearling_interior_fa) - 24%
+  - definitely include
+- Chinook salmon yearling West Cascade spring (lower Columbia) (chinook_salmon_yearling_wc_sp) - 13%
+  - Lower Columbia - likely downstream of BON
+- Chinook salmon yearling Willamette River Spring (chinook_salmon_yearling_wr_sp) - 13%
+  - Willamette River ESU, downstream of BON
+- Sockeye salmon juvenile (sockeye_salmon_juvenile) - 12%
+  - unknown origin
+- Chinook Spring Creek Group fall (chinook_salmon_subyearling_scg_f) - 8%
+  - Lower Columbia - likely downstream of BON
+- Chinook salmon Willamette River Subyearling Spring (chinook_salmon_subyearling_wr_sp) - 8%
+  - Willamette River ESU, downstream of BON
+
+We need to understand what GSI groups are even worth modeling SAR data for
+```{r}
+# 5% cutoff?
+subset(jsoes_freq_occ, grepl("salmon", species))
+subset(jsoes_freq_occ, grepl("salmon", species) & prop_samples > 0.05)
+```
 
 
 
@@ -201,6 +234,7 @@ I am currently developing a Shiny app that will allow you to visualize the distr
 csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
 coho <- subset(jsoes_long, species == "coho_salmon_yearling")
 csyif <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_fa")
+cssif <- subset(jsoes_long, species == "chinook_salmon_subyearling_interior_fa")
 water_jellies <- subset(jsoes_long, species == "water_jelly")
 ```
 
@@ -235,12 +269,21 @@ survey_area_basemap +
 coho_dist_plot <- plot_distribution(data = coho, taxon_name = "Yearling Coho Salmon")
 csyis_dist_plot <- plot_distribution(data = csyis, taxon_name = "Yearling Interior Columbia Spring Chinook")
 csyif_dist_plot <- plot_distribution(data = csyif, taxon_name = "Yearling Interior Columbia Fall Chinook")
+cssif_dist_plot <- plot_distribution(data = cssif, taxon_name = "Subyearling Interior Columbia Fall Chinook")
 water_jellies_dist_plot <- plot_distribution(data = water_jellies, taxon_name = "Water Jellies")
 
 coho_dist_plot
 csyis_dist_plot
 csyif_dist_plot
+cssif_dist_plot
 water_jellies_dist_plot
+
+ggsave(here::here("figures", "csyis_distribution_plot.png"), plot = csyis_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "csyif_distribution_plot.png"), plot = csyif_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "cssif_distribution_plot.png"), plot = cssif_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "coho_distribution_plot.png"), plot = coho_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "water_jellies_distribution_plot.png"), plot = water_jellies_dist_plot, height = 12, width = 17)
+
 ```
 
 
