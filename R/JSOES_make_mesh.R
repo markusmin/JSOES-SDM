@@ -1,7 +1,7 @@
-### JSOES: Create meshes
+### JSOES: Create meshes for use with sdmTMB or TMB SDMs
 
 # Author: Markus Min
-# Last update: 2025-07-10
+# Last updated: 2025-07-23
 
 # Description: This script will create the mesh necessary for SPDE (used in packages such as sdmTMB)
 # for the June survey for both the JSOES Bongo and JSOES Midwater Trawl Data
@@ -14,8 +14,6 @@
 # the resolution of the covariates used for projecting density)
 
 # We will then use the above files to construct a mesh
-
-
 
 #### Load libraries ####
 
@@ -432,78 +430,20 @@ dplyr::select(jsoes_samples, X, Y) %>%
 
 # From this object, we then can create a mesh that will be used by the SPDE method.
 
-# Here's what the original mesh was
-inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(jsoes_samples$X, jsoes_samples$Y), # coordinates
-  cutoff = 10 # minimum triangle edge length
-)
-
-png(here::here("two_stage_models", "figures", "trawl_cutoff_10_original_mesh.png"), width=4, height=6, res=200, units="in")
-plot(inla_mesh)
-points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
-dev.off()
-
-# Here's what the mesh looks like with the same code but now with the new df of all points
-# this looks perhaps unreasonably fine for our sampling design?
-inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(jsoes_all_points$X, jsoes_all_points$Y), # coordinates
-  cutoff = 10 # minimum triangle edge length
-)
-
-png(here::here("two_stage_models", "figures", "trawl_cutoff_10_mesh.png"), width=4, height=6, res=200, units="in")
-plot(inla_mesh)
-points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
-dev.off()
-
-# Here's the mesh with a higher cutoff to make the resolution more coarse
-inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(jsoes_all_points$X, jsoes_all_points$Y), # coordinates
-  cutoff = 15 # minimum triangle edge length
-)
-
-png(here::here("two_stage_models", "figures", "trawl_cutoff_15_mesh.png"), width=4, height=6, res=200, units="in")
-plot(inla_mesh)
-points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
-dev.off()
-
-
-# Here's an option using the offset argument to prevent extrapolating too far offshore
-inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(jsoes_all_points$X, jsoes_all_points$Y),
-  cutoff = 15,
-  offset = -0.01
-)
-
-png(here::here("two_stage_models", "figures", "trawl_cutoff_15_offset_minus0.01_mesh.png"), width=4, height=6, res=200, units="in")
-plot(inla_mesh)
-points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
-dev.off()
-
-# mesh with a boundary 
-# remove the rarely sampled far offshore samples that cause bulges in the mesh
+# use a boundary to ensure that our mesh matches our survey grid
+# in the boundary, remove the rarely sampled far offshore samples that cause bulges in the mesh
 bnd <- INLA::inla.nonconvex.hull(cbind(subset(jsoes_samples, nmi_from_shore < 45)$X, subset(jsoes_samples, nmi_from_shore < 45)$Y), convex = -0.1)
 
-inla_mesh <- fmesher::fm_mesh_2d_inla(
+# make versions of the mesh using the boundary object at varying resolution
+
+inla_mesh_cutoff5 <- fmesher::fm_mesh_2d_inla(
   loc = cbind(jsoes_all_points$X, jsoes_all_points$Y),
-  cutoff = 15,
+  cutoff = 5,
   boundary = bnd
 )
 
-png(here::here("two_stage_models", "figures", "trawl_boundary_mesh.png"), width=4, height=6, res=200, units="in")
-plot(inla_mesh)
-points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
-dev.off()
-
-# make versions of this mesh at varying resolution
-
-inla_mesh_cutoff15 <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(jsoes_all_points$X, jsoes_all_points$Y),
-  cutoff = 15,
-  boundary = bnd
-)
-
-png(here::here("two_stage_models", "figures", "trawl_boundary_mesh_cutoff15.png"), width=4, height=6, res=200, units="in")
-plot(inla_mesh_cutoff15)
+png(here::here("two_stage_models", "figures", "trawl_boundary_mesh_cutoff5.png"), width=4, height=6, res=200, units="in")
+plot(inla_mesh_cutoff5)
 points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
 dev.off()
 
@@ -518,14 +458,14 @@ plot(inla_mesh_cutoff10)
 points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
 dev.off()
 
-inla_mesh_cutoff5 <- fmesher::fm_mesh_2d_inla(
+inla_mesh_cutoff15 <- fmesher::fm_mesh_2d_inla(
   loc = cbind(jsoes_all_points$X, jsoes_all_points$Y),
-  cutoff = 5,
+  cutoff = 15,
   boundary = bnd
 )
 
-png(here::here("two_stage_models", "figures", "trawl_boundary_mesh_cutoff5.png"), width=4, height=6, res=200, units="in")
-plot(inla_mesh_cutoff5)
+png(here::here("two_stage_models", "figures", "trawl_boundary_mesh_cutoff15.png"), width=4, height=6, res=200, units="in")
+plot(inla_mesh_cutoff15)
 points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
 dev.off()
 
@@ -550,16 +490,6 @@ png(here::here("two_stage_models", "figures", "trawl_boundary_mesh_cutoff25.png"
 plot(inla_mesh_cutoff25)
 points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
 dev.off()
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -589,82 +519,25 @@ dplyr::select(bongo_samples, X, Y) %>%
 
 # From this object, we then can create a mesh that will be used by the SPDE method.
 
-# Here's what the original mesh was
-bongo_inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(bongo_samples$X, bongo_samples$Y), # coordinates
-  cutoff = 10 # minimum triangle edge length
-)
-
-png(here::here("two_stage_models", "figures", "bongo_cutoff_10_original_mesh.png"), width=4, height=6, res=200, units="in")
-plot(bongo_inla_mesh)
-points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
-dev.off()
-
-# Here's what the mesh looks like with the same code but now with the new df of all points
-# this looks perhaps unreasonably fine for our sampling design?
-bongo_inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(bongo_all_points$X, bongo_all_points$Y), # coordinates
-  cutoff = 10 # minimum triangle edge length
-)
-
-png(here::here("two_stage_models", "figures", "bongo_cutoff_10_mesh.png"), width=4, height=6, res=200, units="in")
-plot(bongo_inla_mesh)
-points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
-dev.off()
-
-# Here's the mesh with a higher cutoff to make the resolution more coarse
-bongo_inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(bongo_all_points$X, bongo_all_points$Y), # coordinates
-  cutoff = 15 # minimum triangle edge length
-)
-
-png(here::here("two_stage_models", "figures", "bongo_cutoff_15_mesh.png"), width=4, height=6, res=200, units="in")
-plot(bongo_inla_mesh)
-points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
-dev.off()
-
-
-# Here's an option using the offset argument to prevent extrapolating too far offshore
-bongo_inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(bongo_all_points$X, bongo_all_points$Y),
-  cutoff = 15,
-  offset = -0.01
-)
-
-png(here::here("two_stage_models", "figures", "bongo_cutoff_15_offset_minus0.01_mesh.png"), width=4, height=6, res=200, units="in")
-plot(bongo_inla_mesh)
-points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
-dev.off()
-
 # mesh with a boundary 
 # bnd <- INLA::inla.nonconvex.hull(cbind(bongo_samples$X, bongo_samples$Y), convex = -0.1)
 # instead of using the bongo samples to generate the boundary (as above), use 
-# the trawl samples so that we have the same projection area, even if the 
-# mesh within that area is different
+# the trawl samples so that we have the same projection area. Note 
+# that the mesh will be slightly different because the location of bongo
+# samples differs from the midwater trawl samples
 # remove the rarely sampled far offshore samples that cause bulges in the mesh
 bnd <- INLA::inla.nonconvex.hull(cbind(subset(jsoes_samples, nmi_from_shore < 45)$X, subset(jsoes_samples, nmi_from_shore < 45)$Y), convex = -0.1)
 
-bongo_inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(bongo_all_points$X, bongo_all_points$Y),
-  cutoff = 15,
-  boundary = bnd
-)
-
-png(here::here("two_stage_models", "figures", "bongo_boundary_mesh.png"), width=4, height=6, res=200, units="in")
-plot(bongo_inla_mesh)
-points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
-dev.off()
-
 # make versions of this mesh at varying resolution
 
-bongo_inla_mesh_cutoff15 <- fmesher::fm_mesh_2d_inla(
+bongo_inla_mesh_cutoff5 <- fmesher::fm_mesh_2d_inla(
   loc = cbind(bongo_all_points$X, bongo_all_points$Y),
-  cutoff = 15,
+  cutoff = 5,
   boundary = bnd
 )
 
-png(here::here("two_stage_models", "figures", "bongo_boundary_mesh_cutoff15.png"), width=4, height=6, res=200, units="in")
-plot(bongo_inla_mesh_cutoff15)
+png(here::here("two_stage_models", "figures", "bongo_boundary_mesh_cutoff5.png"), width=4, height=6, res=200, units="in")
+plot(bongo_inla_mesh_cutoff5)
 points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
 dev.off()
 
@@ -679,14 +552,14 @@ plot(bongo_inla_mesh_cutoff10)
 points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
 dev.off()
 
-bongo_inla_mesh_cutoff5 <- fmesher::fm_mesh_2d_inla(
+bongo_inla_mesh_cutoff15 <- fmesher::fm_mesh_2d_inla(
   loc = cbind(bongo_all_points$X, bongo_all_points$Y),
-  cutoff = 5,
+  cutoff = 15,
   boundary = bnd
 )
 
-png(here::here("two_stage_models", "figures", "bongo_boundary_mesh_cutoff5.png"), width=4, height=6, res=200, units="in")
-plot(bongo_inla_mesh_cutoff5)
+png(here::here("two_stage_models", "figures", "bongo_boundary_mesh_cutoff15.png"), width=4, height=6, res=200, units="in")
+plot(bongo_inla_mesh_cutoff15)
 points(x = bongo_samples$X, y = bongo_samples$Y, cex = 0.3)
 dev.off()
 
@@ -714,43 +587,16 @@ dev.off()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 #### Visualize alignment between mesh and projection grid ####
 
 # transform mesh to sf
-fm_as_sfc(inla_mesh) %>% 
-   st_set_crs(st_crs(survey_domain_cov_grid)) -> inla_mesh_sf
+fm_as_sfc(inla_mesh_cutoff10) %>% 
+   st_set_crs(st_crs(survey_domain_cov_grid)) -> inla_mesh_cutoff10_sf
 
 mesh_plus_points_plot <- survey_area_basemap_km +
-  geom_sf(data = inla_mesh_sf, fill = NA) +
+  geom_sf(data = inla_mesh_cutoff10_sf, fill = NA) +
   geom_sf(data = survey_domain_cov_grid) +
   geom_point(data = jsoes_samples, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
 
 ggsave(here::here("two_stage_models", "figures", "mesh_plus_points_plot.png"), mesh_plus_points_plot,  height = 10, width = 6)
-
-# compare this with how they fit in the original mesh
-original_inla_mesh <- fmesher::fm_mesh_2d_inla(
-  loc = cbind(jsoes_samples$X, jsoes_samples$Y), # coordinates
-  cutoff = 10 # minimum triangle edge length
-)
-
-fm_as_sfc(original_inla_mesh) %>% 
-  st_set_crs(st_crs(survey_domain_cov_grid)) -> original_inla_mesh_sf
-
-ggplot(original_inla_mesh_sf) +
-  geom_sf() +
-  geom_sf(data = survey_domain_cov_grid)
-
-
 
