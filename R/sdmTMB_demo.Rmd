@@ -1,0 +1,124 @@
+---
+title: "sdmTMB_demo"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+#### Description
+
+This markdown demonstrates how to source the necessary scripts to fit SDMs using the `sdmTMB` package to JSOES data, using Interior Yearling Chinook Salmon as an example. 
+
+```{r load_libraries_source_scripts, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(here)
+library(TMB)
+library(ggforce)
+library(sdmTMB)
+library(kableExtra)
+# knitr::opts_chunk()
+
+# source the function scripts
+source("R/functions/cAIC.R")
+source("R/functions/rmvnorm_prec.R")
+source("R/functions/sample_var.R")
+source("R/functions/plot_anisotropy_MM.R")
+source("R/functions/make_anisotropy_spde.R")
+source("R/functions/H_matrix_prior_predictive_check_for_ggplot.R")
+source("R/functions/plot_distribution.R")
+source("R/functions/generate_prediction_maps.R")
+
+# source the script to load spatial data and create the mesh
+source(here::here("R", "JSOES_make_mesh.R"))
+# note that this script also does some processing of the trawl data
+```
+
+#### Data prep
+
+```{r data_prep}
+
+#### prep model data ####
+
+# extract Yearling Interior Chinook
+csyif <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_fa")
+
+# generate the projection vector/matrix for covariates - this relies
+# on the survey prediction grid from the JSOES_make_mesh.R script
+
+distance_projection_vector <- as.numeric(filter(survey_predict_grid, year == 2000)$dist_shore_scaled)
+
+# for SST - take prediction grid, drop salinity, add SST with locations as rows and years as column
+survey_predict_grid %>% 
+  # select only the years that we're keeping
+  filter(!(year %in% c(1998, 2022:2025))) %>% 
+  dplyr::select(-c(SST, sal, sal_scaled, dist_shore, dist_shore_scaled)) %>% 
+  pivot_wider(names_from = year, values_from = SST_scaled) %>% 
+  dplyr::select(-c(X, Y)) %>% 
+  as.matrix() -> temperature_projection_matrix
+
+# for salinity - take prediction grid, drop SST, add salinity with locations as rows and years as column
+survey_predict_grid %>% 
+  # select only the years that we're keeping
+  filter(!(year %in% c(1998, 2022:2025))) %>% 
+  dplyr::select(-c(SST, SST_scaled, sal, dist_shore, dist_shore_scaled)) %>% 
+  pivot_wider(names_from = year, values_from = sal_scaled) %>% 
+  dplyr::select(-c(X, Y)) %>% 
+  as.matrix() -> salinity_projection_matrix
+
+#### Create SPDE objects ####
+
+# there are multiple meshes that are created in JSOES_make_mesh.R
+# here, we will use the cutoff 15 mesh, although a higher resolution is likely going
+# to improve results (at the cost of run time)
+
+trawl_spde <- fm_fem( inla_mesh_cutoff15, 
+                      order = 2 )
+
+# create projection matrix from vertices to samples
+trawl_is = fm_evaluator(inla_mesh_cutoff15, loc = as.matrix(data.frame(X = csyif$X, Y = csyif$Y)))$proj$A
+
+# create projection matrix from vertices to prediction grid
+trawl_gs = fm_evaluator( inla_mesh_cutoff15, loc=st_coordinates(survey_domain_cov_grid))$proj$A
+
+# prep anisotropy input
+# note that spatial list replaces the M0, M1, M2 objects 
+spatial_list <- make_anisotropy_spde( inla_mesh_cutoff15 )
+```
+
+
+
+# Fitting the SDM
+
+The data that we will be fitting an SDM to is visualized below:
+
+```{r plot_distribtion, fig.cap = "Density of Yearling Interior Columbia Fall Chinook caught in the JSOES midwater trawl.", fig.height = 8, fig.width = 12}
+plot_distribution(data = csyif, taxon_name = "Yearling Interior Columbia Fall Chinook")
+```
+
+
+##### Example model structure
+
+The example model that is fit below has the following structure:
+
+- An intercept that is independent by year that represents the median density in the year
+- Spatial random fields
+- Spatiotemporal random fields, that are independent by year
+
+```{r fit_model}
+# Please note that the following workaround is required to use the custom mesh created by JSOES_make_mesh.R with the sdmTMB package
+
+# workaround to get sdmTMB to use a mesh that was created using a different df
+# than the data you're fitting to
+inla_mesh_cutoff15_sdmTMB$loc_xy <- as.matrix(dplyr::select(csyif, X, Y))
+
+csyif_model3_sdmTMB <- sdmTMB(n_per_km ~ 0 + as.factor(year),
+                                 data = csyif,
+                                 mesh = inla_mesh_cutoff15_sdmTMB,
+                                 time = "year",
+                                 spatial = "on",
+                                 spatiotemporal = "IID",
+                                 family = tweedie(link = "log"))
+# examine model summary
+csyif_model3_sdmTMB
+```
+
