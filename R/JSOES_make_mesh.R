@@ -277,7 +277,7 @@ jsoes_long$sf_dist_shore <- as.numeric(jsoes_long_dist_shore)
 
 # confirm that these are reasonable, based on points from survey
 # they're similar - but not identical
-hist(as.numeric(jsoes_long$sf_dist_shore)-jsoes_long_spatial$km_from_shore)
+# hist(as.numeric(jsoes_long$sf_dist_shore)-jsoes_long_spatial$km_from_shore)
 # and they're pretty biased - the distances calculated using sf tend to be smaller
 # Like for SST, let's just use the sf distance from shore calculated for both 
 # prediction grid and the samples themselves
@@ -380,7 +380,7 @@ SST_sf_proj_km_2000$dist_shore <- as.numeric(st_distance(SST_sf_proj_km_2000, US
 # We also want to exclude values that are within 0.5 km of shore, because these
 # don't have measureable SST values (they're basically on shore)
 # this can also be seen in the following histogram:
-hist(jsoes_long$km_from_shore)
+# hist(jsoes_long$km_from_shore)
 
 # For the N/S dimension, the most northerly transect is typically the FS transect and 
 # the most southerly transect is the NH transect.
@@ -401,8 +401,8 @@ SST_sf_proj_km_2000 %>%
 survey_domain <- st_crop(grid_within_65km_shore, xmin = 0, xmax = 100000, ymin=min_Y-10, ymax=max_Y+10)
 
 # let's inspect the grid that we created
-ggplot(survey_domain) +
-  geom_sf()
+# ggplot(survey_domain) +
+#   geom_sf()
 
 # We will need to manually trim out some of these areas
 
@@ -437,11 +437,11 @@ survey_domain %>%
 # Create a concave hull around points
 st_concave_hull(st_union(survey_domain), ratio = 0.1) -> survey_domain_polygon
 
-ggplot(survey_domain_polygon) +
-  geom_sf()
+# ggplot(survey_domain_polygon) +
+#   geom_sf()
 
-ggplot(survey_domain) +
-  geom_sf()
+# ggplot(survey_domain) +
+#   geom_sf()
 
 # let's inspect our revised survey domain
 survey_area_basemap_km +
@@ -510,7 +510,7 @@ survey_domain_cov %>%
 #   filter(sf_dist_shore <= 65 & sf_dist_shore >= 0.5) -> survey_domain_cov
 
 # plot it - looks good!
-ggplot(survey_domain_cov) + geom_sf()
+# ggplot(survey_domain_cov) + geom_sf()
 
 # Now reformat this object to be a data frame that we can use to predict, rather than an sf object
 as.data.frame(st_coordinates(survey_domain_cov)) -> survey_domain_cov_coords
