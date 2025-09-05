@@ -1,0 +1,184 @@
+---
+title: "Evaluating the spatial component of the match-mismatch hypothesis for fisheries recruitment: A case study of Interior Columbia Chinook"
+subtitle: "Revised Chapter 3 proposal"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    extra_dependencies: ["float"]
+  html_document: default
+urlcolor: blue
+bibliography: JSOES.bib
+csl: ecology.csl
+---
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(fig.pos = "H", out.extra = "")
+```
+
+
+# Background
+
+The match-mismatch hypothesis is a foundational concept in the fisheries recruitment literature which theorizes that the degree of spatiotemporal match or mismatch between the early life stages of fish and their prey leads to variable year class strength [@Cushing1975; @Cushing1990]. In the match-mismatch literature, this hypothesis is typically tested using temporal indicators of match or mismatch, which is much easier to measure than the spatial dimension. This is especially true for Pacific salmon, as the temporal aspect is relatively straightforward to measure via the monitoring of juvenile outmigration timing. In the case of the oceanic phase for anadromous species, there is inherent covariation between space and time given that their distribution must be near the mouth/river plume close to the outmigration date and disperses along their migration pathways afterwards. Outmigration timing been consistently linked to marine survival in Chinook and Steelhead, but with variability from year to year [@Scheuerell2009; @Wilson2021]. Some evidence has been found for links between marine survival and outmigration timing relative to the biological spring transition, which can be used to quantify the onset of productive conditions in the system, although these results are not as strong [@Satterthwaite2014]. In contrast, salmon marine survival is not usually studied using explicit spatial information, as ecosystem state is typically summarized using basin-scale indices like PDO and NPGO. However, while these indicators have historically been useful for predicting salmon returns, these correlations appear to be breaking down [@Litzow2020] as correlations between these basin-scale indicators and local environmental indices continually change [@Gosselin2021]. As a result, spatially resolved data that reflects the restricted and stock-specific areas used by juvenile salmon in their early marine residence [@Teel2015] could allow us to investigate spatiotemporal match-mismatch as a mechanistic driver of marine survival.
+
+In other systems, the spatiotemporal aspects of the match-mismatch hypothesis have been partially explored; however, I was not able to find papers that explicitly tested spatial overlap as a predictor of recruitment. For example, using data from ichthyoplankton surveys, @Ferreira2020 calculated the temporal overlap between larval cod and copepods in the Norweigan-Barents Sea System between May and July, but integrated across space to generate a time series of each focal taxa. They found that this approach predicted 29% of cod recruitment variability. @Ferreira2024 found that when this spatiotemporal approach was expanded to include competition, the combined effects of spatiotemporal overlap between cod and both their prey and competitors explained 43% of recruitment variability in cod. This suggests that for some stocks, match-mismatch dynamics are not relevant only for the focal stock with their prey, but with other potentially interacting trophic levels as well. However, the approach used in these studies was the same, where spatial information was collapsed in order to focus on phenological (i.e., timing) match-mismatch dynamics. The spatial aspects of this hypothesis remain largely unexplored.
+
+The Juvenile Salmon and Ocean Ecosystem Survey (JSOES), conducted off the coast of Oregon and Washington, presents an opportunity to study the spatial aspect of the match-mismatch hypothesis in Pacific salmon. The JSOES is conducted every year in June, has been conducted intermittently in May, and from 1998-2012, was also conducted in September. This survey was designed to capture outmigrating salmonids from the Columbia River Basin, but the spatiotemporal overlap between the JSOES survey and juvenile salmonids varies considerably by stock. Based on coded wire tag (CWT) recoveries, Upper Columbia and Snake River Fall Chinook remain in the survey area (the Oregon and Washington shelf) through autumn [@Fisher2014]. In contrast, Middle Columbia, Upper Columbia, and Snake River spring/summer Chinook migrate quickly through the survey area, with CWT recoveries only common in May, and most fish moving north of the survey area by June [@Fisher2014]. This is corroborated by genetic stock identification of juveniles caught by JSOES, where Upper Columbia and Snake River Fall Chinook subyearlings and yearlings are caught throughout much of the survey region in June, whereas spring/summer Chinook are only found in the northernmost portion of the survey by this time [@Teel2015]. Therefore, if examining spatiotemporal overlap using the June JSOES data, which is the longest time series and occurs at the same time of year as other surveys in the Northern California Current (NCC), we would expect spatiotemporal overlap measured using this survey to be most predictive of interior Fall Chinook recruitment. However, a comparison of the predictive power of spatiotemporal overlap for recruitment interior Fall Chinook relative to other stocks, such as interior Spring Chinook, may also reveal insights into the importance of quantifying spatial overlap.
+
+By combining data on the spatiotemporal distribution of interior  Chinook with data from other surveys in the NCC, match-mismatch dynamics can be explored between juvenile salmonids and other potentially interacting taxa. This study has three aims:
+
+1. To improve our mechanistic understanding of the drivers of marine survival in Columbia River Chinook salmon
+2. To explicitly analyze the spatial component of the match-mismatch hypothesis and contribute to the fisheries recruitment literature
+3. To explore approaches to integrate data across disparate surveys with varying spatial and temporal designs
+
+# Methods
+
+## Data
+
+Data from PIT-tagged salmon will be used to quantify marine survival. Data to characterize the marine environment will come from different fisheries-independent surveys that sample the pelagic NCC. These are the At-Sea Hake Survey (Hake), the Pre-Recruit Survey (PRS) and its predecessor the Pacific Whiting Conservation Cooperative (PWCC) survey, and the California Current Ecosystem Survey (CCES; also known as the Coastal Pelagic Species or CPS survey). I have been able to acquire all available data for these surveys within the study region, with the temporal resolution shown in Fig. 1.
+
+
+### PIT-tag data
+
+For our model, we will condition on juveniles being detected at Bonneville Dam to isolate marine survival (defined here as survival from juvenile detection at Bonneville Dam to adult detection at Bonneville Dam). By examining the distribution of tagged juvenile Chinook PTAGIS detected at Bonneville Dam, we can see that we have reasonable sample sizes to estimate marine survival in our interior stock groups in most years (Tables 1-4).
+
+
+```{r PIT_tag_data, echo = FALSE, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(here)
+library(kableExtra)
+library(flextable)
+
+# Make a function to actually fit the flextable
+FitFlextableToPage <- function(ft, pgwidth = 8){
+
+  ft_out <- ft %>% autofit()
+
+  ft_out <- width(ft_out, width = dim(ft_out)$widths*pgwidth /(flextable_dim(ft_out)$widths))
+  return(ft_out)
+}
+
+
+annual_adult_counts_BON_table <- read.csv(here::here("figures", "annual_adult_counts_BON_table.csv"))
+annual_juvenile_counts_BON_table <- read.csv(here::here("figures", "annual_juvenile_counts_BON_table.csv"))
+
+colnames(annual_adult_counts_BON_table) <- gsub("X", "", colnames(annual_adult_counts_BON_table))
+colnames(annual_juvenile_counts_BON_table) <- gsub("X", "", colnames(annual_juvenile_counts_BON_table))
+
+# annual_adult_counts_BON_table %>%
+#   dplyr::rename("Stock Group" = "group_run") -> annual_adult_counts_BON_table
+# 
+# annual_adult_counts_BON_table %>%
+#   dplyr::rename("Stock Group" = "group_run") -> annual_adult_counts_BON_table
+
+# Break each into two tables
+
+annual_juvenile_counts_BON_table[,1:14] %>%
+  dplyr::rename("Stock Group" = "group_run") %>%
+  kbl(caption = "Juvenile detections at Bonneville Dam, by stock group (part 1).") %>%
+  kable_styling(latex_options = c("HOLD_position", "scale_down"))
+
+annual_juvenile_counts_BON_table[,c(1,15:28)] %>%
+  dplyr::rename("Stock Group" = "group_run") %>%
+  kbl(caption = "Juvenile detections at Bonneville Dam, by stock group (part 2).") %>%
+  kable_styling(latex_options = c("HOLD_position", "scale_down"))
+
+annual_adult_counts_BON_table[,1:14] %>%
+  dplyr::rename("Stock Group" = "group_run") %>%
+  kbl(caption = "Adult detections at Bonneville Dam, by stock group, conditional on having been detected as juveniles at Bonneville Dam (part 1).") %>%
+  kable_styling(latex_options = c("HOLD_position", "scale_down")) 
+
+annual_adult_counts_BON_table[,c(1,15:28)] %>%
+  dplyr::rename("Stock Group" = "group_run") %>%
+  kbl(caption = "Adult detections at Bonneville Dam, by stock group, conditional on having been detected as juveniles at Bonneville Dam (part 2).") %>%
+  kable_styling(latex_options = c("HOLD_position", "scale_down")) 
+
+```
+
+
+
+
+
+### Ocean data
+
+#### JSOES:
+
+Our focal taxa, juvenile salmonids, have varying ocean migration patterns [@Fisher2014; @Teel2015], and as such as captured at varying rates by the JSOES survey. In the data, the only stock groups that originate from upstream of Bonneville Dam and are caught in more than 10% of the tows in June are the following: Yearling Interior Fall Chinook (33% of tows), Yearling Interior Spring Chinook (25% of tows), and Subyearling Interior Fall Chinook (24%). As mentioned in the introduction, only Fall Chinook are consistently in the survey area at the time of the June survey; however, to explore our match-mismatch hypothesis, it would be interesting to compare our results for Fall and Spring Chinook to see if the spatiotemporal overlap for Fall Chinook is indeed a better predictor of ocean survival than it is for Spring Chinook.
+
+#### PRS/PWCC:
+
+The Pre-Recruit Survey has been conducted since 2011, and samples the pelagic forage base. From 2001-2009, a survey with the same design was operated by the PWCC; however, the only taxa that were reliably enumerated from the PWCC survey were YOY rockfish and hake. YOY rockfish are an important prey item for salmon, and their time series goes back to 2001; other forage items, such as other juvenile fishes, could be included from 2011 onwards. However, another important consideration for the PRS or PWCC data is the spatial extent, which only extends to the Columbia River plume and therefore only overlaps with about half of the JSOES domain.
+
+#### At-Sea Hake:
+
+The At-Sea Hake survey has been conducted using biennial or triennial design since 1998. Krill backscatter from this survey has been quantified since 2007. This survey provides spatiotemporal data on both an important potential predator (hake) and prey (krill), albeit with many years of missing data.
+
+#### CCES/CPS:
+
+While the CCES/CPS survey has been conducted since 2006, conversations with the data managers for this survey revealed that they standardized their data analysis framework in 2015, and are unable to provide data before 2015. This survey samples some potential prey, competitors, and predators of juvenile salmonids, including Northern Anchovy, Pacific Sardine, Pacific Herring, and Jack Mackerel.
+
+![Target taxa and data sources. Our focal taxa, Interior Chinook, are shown in yellow. Prey are in green and potential predators are in red. Forage fishes are shown in a red/green gradient, as these taxa may be prey or competitors of juvenile salmonids, depending on their relative sizes. YOY Rockfishes are shown in a hatched pattern because the PWCC and PRS surveys do not fully overlap with the JSOES area.](ocean_survival_schematic.png)
+
+## Statistical model
+
+Because our survival data come from individual PIT-tagged fish, we can model survival as a Bernoulli trial for each individual. We will then use logistic regression to estimate the effect of our ocean survival covariates. To ensure the appropriate propagation of uncertainty, this whole workflow will be fit in one TMB model [@Kristensen2016] that both fits the spatiotemporal model of species distribution to the ocean surveys and then uses the metrics of overlap derived from those models as covariates in the survival model.
+
+In our model, $z_{i,t}$ describes the survival of fish $i$ in year $t$. let $z_{i,t}$ be 1 when fish $i$ has survived to return to Bonneville Dam as an adult, and 0 when fish $i$ did not survive. The term $\phi_{i,t}$ describes the marine survival probability of fish $i$ in year $t$. The likelihood is then as follows:
+
+$$
+z_{i,t} \sim Bernoulli(\phi_{i,t})
+$$
+
+
+$\phi_{i,t}$ is determined by the suite of ocean survival covariates linked with fish $i$ in year $t$. This term is given by the following equation:
+
+
+$$
+\begin{split}
+logit(\phi_{i,t}) \sim \mathbf{x}_i \pmb{\beta} + \epsilon_t \\
+\epsilon_t \sim N(0, \sigma_t)
+\end{split}
+$$
+
+In this equation, $\mathbf{x}_i$ is a vector of covariates whose first entry is 1, and $\pmb{\beta}$ is a vector of regression coefficients whose first element is an intercept term, and the remaining terms describe the effects of the ocean covariates. $\mathbf{x}_i$ only has subscript $i$ and not $t$ because although fish from the same run year will share the values of many covariates, some covariates are at the individual level (e.g., juvenile transport, outmigration timing, and rear type). $\sigma_t$ describes the standard deviation of the random effect of year, $\epsilon_t$. These ocean covariates will include factors which have been previously been found to influence marine survival [@Scheuerell2009; @Gosselin2021] as well as our spatiotemporal predictors, listed below in bold, with a + or - sign indicating the hypothesized direction of the effect.
+
+Candidate ocean survival covariates:
+
+- outmigration timing
+- juvenile transport
+- sea surface temperature
+- rear type
+- **biomass-weighted overlap between phytoplankton and salmon** (+)
+- **biomass-weighted overlap between krill and salmon** (+)
+- **biomass-weighted overlap between copepods and salmon** (+)
+- **biomass-weighted overlap between larval rockfishes and salmon** (+)
+- **biomass-weighted overlap between Pacific Hake and salmon** (-)
+- **biomass-weighted overlap between seabirds and salmon** (-)
+
+As seen in Fig. 1, some of these spatiotemporal overlap predictors can only be evaluated in certain portions of the time series due to availability of survey data. Different models corresponding to different years of the study period will be written to facilitate tests of the importance of various other trophic levels for juvenile salmonid survival. For example, one model will contain the entire time series from 1998-present, restricted to the data sources that are available for that time period (only the JSOES bongo and trawl data). Another model will be fit that includes only the years where the hake survey was conducted, which will require that data from most odd years are dropped. In addition to these covariates, there are many other ocean survival covariates that could be explored, such as the indicators in the [salmon stoplight tables](https://www.fisheries.noaa.gov/west-coast/science-data/ocean-conditions-indicators-trends).
+
+## Spatiotemporal models
+
+To faciliate the evaluation of the match-mismatch hypothesis in space using data from different surveys, spatiotemporal models will be developed for each of the target taxa. This allows us generate predictions from the fitted models for the study area which can then be used estimate the degree of overlap, despite the sampling grids varying between surveys.
+
+The structure of the spatiotemporal model for each taxon will be selected based on AIC and k-fold cross-validation. Because our goal is to use the spatiotemporal models to best characterize the distribution in each year, rather than predict to unseen years, we will use a random (k-fold) design for cross-validation, rather than using spatial or temporal blocks for the cross-validation.
+
+The terms in the spatiotemporal models that we will test include the following:
+
+- An intercept term for the full study region, that may be time-varying, either as an AR1 process or as IID across years
+- Spatial random fields
+- Spatiotemporal random fields, that may be independent by year or modelled as an AR1 process
+- Covariates, including distance from shore, SST, or chl-a
+
+
+## Choice of overlap metric
+
+Once spatiotemporal models have been fit to each taxon, overlap between the taxa and juvenile salmonids within the study area will be quantified and summarized into an overlap indicator for inclusion in the ocean survival model. However, a key component of match-mismatch is not only the degree of spatial or temporal overlap, but also the abundance of the food resource [@Durant2005]. Therefore, some metrics of overlap, such as the local index of collocation/Pianka's O, which measure co-occurrence by estimating the correlation of predator and prey densities but is independent of scale [@Carroll2019], are not as appropriate for testing our hypotheses. The choice of overlap metric will depend on the type of interaction we are quantifying. To quantify the spatiotemporal availability of prey species (e.g., copepods) to juvenile salmonids, an index like the biomass-weighted overlap index may be the most approriate, as it can be used to quantify the biomass of prey that is spatially available to juvenile salmonids [@Carroll2019]. Conversely, the same metric could be used to quantify predation pressure on juvenile salmonids, by making changing the focal species to a predator, such as Pacific Hake, and quantifying the biomass of predators that are spatially overlapping with juvenile salmonids.
+
+
+
+# References
+
+
+
+
