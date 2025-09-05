@@ -1,0 +1,109 @@
+---
+title: "Project Workflow"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+bibliography: "JSOES.bib"
+csl: "ecology.csl"
+output:
+  html_document
+---
+
+## Updated project description
+
+Does putting the "spatio" in "spatio-temporal" matter when it comes to the match-mismatch hypothesis for fisheries recruitment? A case study of Interior Columbia River Fall Chinook
+
+
+
+In the match-mismatch literature on Pacific salmon, much attention has been paid to the temporal aspect, usually quantified using outmigration timing and the timing of the spring phytoplankton bloom, but the spatial aspect has been largely ignored. For example, @Scheuerell2009 found that juvenile outmigration timing was a very strong predictor of marine survival, but that the peak date of survival varied from year to year. In later studies, @Tomaro2012 used four indicators: two indices of the copepod community based on sampling from the Newport Hydrographic Line (NHL), the lag between the physical spring transition date and juvenile emigration, and the lag between the biological spring transition date and juvenile emigration. They found no relationship between these four indicators and growth, did find a relationship between size at capture of juvenile salmonids and both the abundance of lipid-rich copepods and the timing of biological spring transition [@Tomaro2012]. In a similar study, @Miller2014 investigated the relationship between SAR and PDO, NPGO, an index of the copepod community from the NHL, the Columbia River Plume area, and the same lags between physical and biological transition dates and juvenile emigration. They found that some of these indicators performed well for hindcasting, but very poorly for forecasting [@Miller2014]. 
+
+In other systems, the spatiotemporal aspects of the match-mismatch hypothesis have been explored. Using data from  ichthyoplankton surveys, @AFerreira2020 found that a metric of predator-prey overlap between larval cod and copepods using spatiotemporal statistical models predicted 29% of cod recruitment variability, and @Ferreira2023 found that a similar approach applied to herring larvae explained 23% of recruitment variability. @Ferreira2024 found that when this spatiotemporal approach was expanded to include competition, wherein cod, haddock, and capelin larvae were simultaneously evaluated, the combined effects of spatiotemporal overlap between cod and both their prey and competitors explained 43% of recruitment variability. However, this study found less evidence for the ability of spatiotemporal overlap to explain recruitment in haddock and capelin, indicating that the species-specific complexities of recruitment dynamics play a role in how well this metric can perform.
+
+
+Now, with the JSOES dataset going back to 1998, we have a considerable time series of the spatiotemporal distribution of Columbia River stocks in this critical early period of their marine life history. 
+
+
+
+
+
+
+## Workflow overview
+
+![Model directed acyclic diagram (DAG). Boxes around juvenile salmonids and other taxa indicate a spatiotemporal index of overlap. Green colors are hypothesized positive effects, and red colors are hypothesized negative effects. The data sources for each component of the food web are shown in italics.](figures/model_dag.png)
+
+
+
+
+
+
+<br>
+
+## PIT Tag Data Overview
+
+
+
+<br>
+
+## Taxa to model spatiotemporally
+
+### JSOES Trawl
+
+#### Focal taxa:
+
+- Interior Spring Chinook
+- Interior Fall Chinook
+
+#### Prey
+
+- American shad
+- Market squid
+
+#### Predators
+
+- seabirds
+
+#### Competitors
+
+- Pacific Pompano
+- Sablefish
+
+### JSOES Bongo
+
+#### Prey
+
+- Cancer crab larvae
+- Hyperiid amphipods
+- Non-Cancer crab larvae
+- Shrimp larvae
+
+### PRS/PWCC
+
+#### Prey
+
+- YOY rockfishes
+- juvenile flatfishes
+- juvenile poachers
+- osmerids
+- myctophids
+- bathylagids
+- armhook squid
+- market squid
+- Pacific sand lance
+- clupeids
+- Cancer crabs
+
+### At-Sea Hake survey
+
+#### Prey
+
+- Krill
+
+#### Predators
+
+- Age 2+ hake
+
+
+<br>
+
+
+## References 
+

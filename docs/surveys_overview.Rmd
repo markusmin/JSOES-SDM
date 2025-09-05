@@ -30,7 +30,10 @@ survey <- c("JSOES", "CCES", "PRS", "Adult Returns")
 # end_date <- c(2024, 2024, 2024, 2024, 2020)
 
 # start_date <- c(1, 8*12, 7*12, 5*12, 1)
-start_date <- c(1, 8*12, 7*12, 1)
+# start_date <- c(1, 8*12, 7*12, 1)
+# change CCES start date to 2015
+start_date <- c(1, 17*12, 7*12, 1)
+
 
 # end_date <- c(26*12, 26*12, 26*12, 26*12, 22*12)
 end_date <- c(26*12, 26*12, 26*12, 22*12)
@@ -63,7 +66,8 @@ surveys_plot <- ganttrify(project = surveys_df,
           show_vertical_lines = FALSE,
           colour_stripe = "white") +
     theme(axis.title.x=element_blank()) +  
-  scale_x_date(date_breaks = "2 years", date_labels = "%Y", breaks = seq(1998, 2024, 2))
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y", breaks = seq(1998, 2024, 2)) +
+  ggtitle("NCC Survey Temporal Coverage")
 
 surveys_plot
 ```

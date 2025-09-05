@@ -21,7 +21,7 @@ The hake survey conducts transects perpendicular to the coast. On each transect,
 
 ### Spatial and temporal extent
 
-The hake survey, in its current form, has been conducted jointly between NWFSC and DFO since 2003. The survey is biennial, occurring in odd years (plus 2012). The survey takes place in the summer (June-September), and samples north to south (from Point conception to SE Alaska). In a typical year, the transects off the coasts of Oregon and Washington are sampled in August. Prior to 2003, a triennial survey was conducted by the AFSC (since 1977 in U.S. waters) and DFO (since 1990 in Canadian waters).
+The hake survey, in its current form, has been conducted jointly between NWFSC and DFO since 2003. The survey is biennial, occurring in odd years (plus 2012). The survey takes place in the summer (June-September), and samples south to north (from Point conception to SE Alaska). In a typical year, the transects off the coasts of Oregon and Washington are sampled in August. Prior to 2003, a triennial survey was conducted by the AFSC (since 1977 in U.S. waters) and DFO (since 1990 in Canadian waters).
 
 ![Map of the Hake survey extent from @DeBlois2020.](survey_images/deBlois_2020_hake_survey_design.png){width=50%}
 

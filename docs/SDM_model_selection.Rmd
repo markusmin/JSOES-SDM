@@ -1,0 +1,158 @@
+---
+title: "Model selection for species distribution models"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+bibliography: "JSOES.bib"
+csl: "ecology.csl"
+output:
+  html_document
+---
+
+### Background
+
+The first stage of our two-stage model involves fitting species distribution models (SDMs) to each of the taxa in our dataset. This document will go through the model selection process for each of these taxa.
+
+
+Importantly, the objective of the SDMs that are being developed for this study are to describe the distribution of each taxon within the study area and within the study time period, to facilitate the estimation of spatiotemporal overlap. As such, the objectives for constructing these SDMs is to achieve the best in-sample predictive performance, rather than alternative objectives for SDMs, such as to predict species distributions under future climate conditions. Therefore, the metrics that will be emphasized for comparing alternative models are those that compare in-sample predictive performance (i.e., predictive performance with the set of random effects estimated in the model).
+
+<br>
+
+### Metrics used for model selection
+
+
+#### Conditional AIC
+
+
+
+#### Marginal AIC
+
+
+
+#### Cross-validation
+
+
+
+
+
+
+
+
+### SDM model components
+
+
+
+#### Observation error
+
+Barnett et al. 2021: Because of the positive continuous nature of the recorded fish densities combined with many zeros, we modeled the response ys,t (catch per unit effort [CPUE] at point in space s and time t) with a Tweedie distribution because it performs well with modeling such data (Tweedie 1984, Dunn and Smyth 2005, Anderson et al. 2019), and a log link:
+
+#### Spatial effects
+
+
+
+#### Spatiotemporal effects
+
+
+
+#### Geometric anisotropy in spatial and spatiotemporal random effects
+
+When anisotropy was first incorporated in the model, it struggled to converge using maximum likelihood. As a result, we used an informative prior on the anisotropy parameters to constrain the range of anisotropy allowed in the model. A prior predictive check, in which 1000 anisotropy ellipses were simulated from the prior distributions of the two anisotropy parameters, resulted in the following distribution of potential allowable ellipses that show the range of spatial correlation.
+
+![Prior predictive check for anisotropy ellipses, showing the distance at 10% correlation. The star in the center of the density of ellipses is the center point of the ellipses.](../two_stage_models/SDM_stage1/figures/anisotropy_prior_predictive_0.5SD.png){width=100%}
+
+#### Covariates
+- SST
+- Distance from shore
+- Salinity (data limited)
+- PDO (SVC)
+- NPGO (SVC)
+- ONI (SVC)
+
+Sea surface temperature (SST) data was downloaded from the [NOAA ERDDAP server](https://coastwatch.noaa.gov/erddap/griddap/noaacrwsstDaily.html). Distance from shore was computed in R using the sf package. Salinity data was queried from a recently published regional physical-biogeochemical ocean model for marine resource applications in the Northeast Pacific [@Drenkard2024] and accessed via the [NOAA CEFI Portal](https://psl.noaa.gov/cefi_portal/). Because the salinity data from the hindcast published in @Drenkard2024 has a slightly coarser resolution than the SST data, we matched each SST point to the nearest salinity datapoint. Although other salinity data sources exist, the model published by @Drenkard2024 was the only salinity data source that covered the full time series of the JSOES data.
+
+We also allow the effect of regional oceanographic indices as spatially-varying covariates. The oceanographic indices that we investigated were PDO, NPGO, and ONI, which were queried from the [NOAA ERDDAP server for CCIEA products](https://oceanview.pfeg.noaa.gov/erddap/search/index.html?page=1&itemsPerPage=1000&searchFor=cciea)
+
+Columbia River outflow (flow at Bonneville Dam, over the window from April 1 to June 1 to align with the timing of juvenile outmigration) was also incorporated as an SVC.
+
+
+### Candidate models for individual taxa {.tabset .tabset-pills}
+
+
+#### Yearling Interior Fall Chinook (JSOES Trawl)
+
+
+##### Model 1: Main effects for year and space
+
+- An intercept that is independent by year that represents the median density in the year
+- Spatial random fields
+
+##### Model 2: Main effects for year and space (with geometric anisotropy)
+
+- An intercept that is independent by year that represents the median density in the year
+- Spatial random fields (that are geometrically anisotropic)
+
+
+Based on the comparison of the first two models, geometric anisotropy was strongly supported. We therefore proceed with including geometric anisotropy in all subsequent models.
+
+
+
+##### Model 3: Main effects for year and space, with the independent interaction of space and year (with geometric anisotropy)
+
+- An intercept that is independent by year that represents the median density in the year
+- Spatial random fields (that are geometrically anisotropic)
+- Spatiotemporal random fields (that are geometrically anisotropic), that are independent by year
+
+
+##### Model 4: Main effect for year but not space, with the independent interaction of space and year (with geometric anisotropy)
+
+- An intercept that is independent by year that represents the median density in the year
+- Spatiotemporal random fields (that are geometrically anisotropic), that are independent by year
+
+
+Based on the comparison of the first four models, we then proceeded with model 3 to examine which covariates to include.
+
+
+
+##### Model 5: All covariates
+
+- An intercept that is independent by year that represents the median density in the year
+- Spatial random fields (that are geometrically anisotropic)
+- Spatiotemporal random fields (that are geometrically anisotropic), that are independent by year
+- Sea surface temperature
+- Salinity
+- Distance from shore
+- Columbia River outflow (SVC)
+- PDO (SVC)
+- NPGO (SVC)
+- ONI (SVC)
+
+
+Based on the inspection of standard errors for the effects of covariates, SST and distance from shore were supported as being significant predictors of density, but the other covariates were not. Salinity was marginally significant. Therefore, we tested three subsequent models:
+- SST and distance from shore
+- SST and distance from shore, with salinity
+
+
+#### Model 3: No covariates
+
+
+
+
+
+
+##### Covariates:
+
+- SST
+- Distance from shore
+- Salinity (data limited)
+- PDO (SVC)
+- NPGO (SVC)
+- ONI (SVC)
+
+
+#### Shrimp Larvae (JSOES Bongo)
+
+
+
+
+
+
+

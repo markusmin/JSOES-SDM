@@ -1,0 +1,356 @@
+---
+title: "CCES/CPS Exploratory Analysis"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output:
+  html_document
+---
+This page contains exploratory analysis for the acoustic backscatter data from [CCES](https://markusmin.github.io/JSOES-SDM/CCES_survey_description.html).
+
+## Data Overview
+
+The CCES survey is conducted in two depth-stratified regions: the core area (bottom depth > 25 m, sampled by the Reuben Lasker or Bell Shimada) and the nearshore area (bottom depth < 15 m, sampled by fishing vessels). In this document, we have plotted the core and nearshore data together. For reference, JSOES sampling occurs from bottom depths of 18 m to 1465 m. 
+
+
+## Distribution maps
+
+In this document, I show the acoustic backscatter assigned to five species monitored by this survey: 
+
+- Northern Anchovy *Engraulis mordax*
+- Pacific Sardine *Sardinops sagax*
+- Pacific Mackerel *Scomber japonicus*
+- Pacific Herring *Clupea pallasii*
+- Jack Mackerel *Trachurus symmetricus*
+
+A sixth species, Pacific Round Herring *Etrumeus acuminatus* is also quantified, but does not occur in the Northern California Current and therefore is not pictured here.
+
+
+
+
+```{r chunk-options, message = FALSE, echo = FALSE, warning = FALSE}
+# set chunk options
+knitr::opts_chunk$set(message = FALSE, echo = FALSE, warning = FALSE)
+```
+
+
+```{r load-libraries-reformat-data}
+library(readxl)
+library(here)
+library(janitor)
+library(tidyverse)
+library(kableExtra)
+library(sf)
+library(gstat)
+library(sp)
+library(ggthemes)
+library(ape)
+library(viridis)
+
+# load the necessary packages
+# if (!require("atmData")) pkg_install("SWFSC/atmData")
+library(atmData)
+
+data("nasc_density_1507SH")
+data("nasc_density_1606RL")
+data("nasc_density_1707RL")
+data("nasc_density_1807RL")
+data("nasc_density_1907RL")
+# data("nasc_density_2007RL")
+data("nasc_density_2107RL")
+data("nasc_density_2207RL")
+data("nasc_density_2307RL")
+data("nasc_density_2407RL")
+
+# actually load these so they're not just <promise> objects
+# check out what columns aren't shared
+cn_15 <- colnames(nasc_density_1507SH)
+cn_16 <- colnames(nasc_density_1606RL)
+cn_17 <- colnames(nasc_density_1707RL)
+cn_18 <- colnames(nasc_density_1807RL)
+cn_19 <- colnames(nasc_density_1907RL)
+cn_21 <- colnames(nasc_density_2107RL)
+cn_22 <- colnames(nasc_density_2207RL)
+cn_23 <- colnames(nasc_density_2307RL)
+cn_24 <- colnames(nasc_density_2407RL)
+
+# setdiff(cn_24, cn_17)
+
+# decide on a subset of columns to keep
+# unique(c(cn_15, cn_16, cn_17, cn_18, cn_19,
+#       cn_21, cn_22, cn_23, cn_24))
+
+cces_colnames <- c("Interval", "depth", "datetime", "vessel.name", "sounder", "id",
+                   "transect.name", "transect", "long", "lat", "X", "Y",
+                   "period", "day_night", "anch.dens", "her.dens", "jack.dens", "mack.dens",
+                   "sar.dens", "rher.dens", "Region")
+
+# combine all of the files into one df
+dplyr::select(nasc_density_1507SH, any_of(cces_colnames)) %>% 
+  bind_rows(dplyr::select(nasc_density_1606RL, any_of(cces_colnames))) %>% 
+  bind_rows(dplyr::select(nasc_density_1707RL, any_of(cces_colnames))) %>% 
+  bind_rows(dplyr::select(nasc_density_1807RL, any_of(cces_colnames))) %>% 
+  bind_rows(dplyr::select(nasc_density_1907RL, any_of(cces_colnames))) %>% 
+  bind_rows(dplyr::select(nasc_density_2107RL, any_of(cces_colnames))) %>% 
+  bind_rows(dplyr::select(nasc_density_2207RL, any_of(cces_colnames))) %>% 
+  bind_rows(dplyr::select(nasc_density_2307RL, any_of(cces_colnames))) %>% 
+  bind_rows(dplyr::select(nasc_density_2407RL, any_of(cces_colnames))) -> cces_nasc_density
+
+# extract year as a column
+cces_nasc_density %>% 
+  mutate(year = year(datetime)) -> cces_nasc_density
+
+# subset to only be jsoes survey area
+cces_nasc_density_ncc <- subset(cces_nasc_density, lat > 44)
+
+# make the density binned
+# figure out what our ranges are
+# range(cces_nasc_density_ncc$anch.dens)
+# range(cces_nasc_density_ncc$sar.dens)
+# range(cces_nasc_density_ncc$her.dens)
+# range(cces_nasc_density_ncc$jack.dens)
+# range(cces_nasc_density_ncc$mack.dens)
+# range(cces_nasc_density_ncc$rher.dens, na.rm = T)
+
+# There are some negative values here which is really odd - should reach
+# out to CPS team if we decide to include this data
+
+# Define bins and labels
+breaks <- c(-1000000, 1, 10, 100, 500, 1000, 1000000)
+labels <- c("0-1", "1-10", "10-100", "100-500", "500-1000", "1000+")
+
+cces_nasc_density_ncc %>% 
+  mutate(anch_density = cut(anch.dens, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) %>% 
+  mutate(sar_density = cut(sar.dens, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) %>% 
+  mutate(her_density = cut(her.dens, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) %>% 
+  mutate(jack_density = cut(jack.dens, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) %>% 
+  mutate(mack_density = cut(mack.dens, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) %>% 
+  mutate(rher_density = cut(rher.dens, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) -> cces_nasc_density_ncc
+
+
+```
+
+
+```{r load_spatial_data, cache = TRUE}
+#### Spatial data ####
+usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp", quiet = TRUE)
+# load BC
+CAN_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp", quiet = TRUE)
+BC_spdf <- filter(CAN_spdf, PRENAME == "British Columbia")
+BC_proj <- st_transform(BC_spdf, crs = 4326)
+
+
+# crop them to our desired area
+US_west_coast <- sf::st_crop(usa_spdf,
+    c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
+
+BC_coast <- sf::st_crop(BC_proj,
+    c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
+
+
+
+# convert both shapefiles to a different projection (UTM zone 10) so that they can be plotted with the sdmTMB output
+UTM_zone_10_crs <- 32610
+
+US_west_coast_proj <- sf::st_transform(US_west_coast, crs = UTM_zone_10_crs)
+BC_coast_proj <- sf::st_transform(BC_coast, crs = UTM_zone_10_crs)
+
+# make this projection into kilometers
+US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+BC_coast_proj_km <- st_as_sf(BC_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+```
+
+```{r create_basemap, cache = TRUE}
+# create base map
+survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
+  geom_sf() +
+  geom_sf(data = BC_coast_proj_km) +
+  # coord_sf(ylim = c(4922.052, 5342.052), xlim = c(334.8638, 404.8638)) +
+  # coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+  # temporary fix for lat/long on axes to just get rid of them - start here to actually fix: https://forum.posit.co/t/converting-axes-to-lat-lon/27181
+
+survey_area_basemap <- ggplot(US_west_coast) +
+  geom_sf() +
+  geom_sf(data = BC_coast) +
+  coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  scale_x_continuous(breaks = c(124,125,126)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+```
+
+```{r plot_distributions, fig.dim = c(20, 12)}
+survey_area_basemap +
+      geom_point(data = cces_nasc_density_ncc, aes(x = long, y = lat, size = anch_density, color = anch_density),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("gray", viridis(5))) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle("Northern Anchovy") +
+  scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> anch_distribution_plot
+
+anch_distribution_plot
+
+survey_area_basemap +
+      geom_point(data = cces_nasc_density_ncc, aes(x = long, y = lat, size = sar_density, color = sar_density),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("gray", viridis(5))) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle("Pacific Sardine") +
+  scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> sar_distribution_plot
+
+sar_distribution_plot
+
+survey_area_basemap +
+      geom_point(data = cces_nasc_density_ncc, aes(x = long, y = lat, size = mack_density, color = mack_density),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("gray", viridis(5))) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle("Pacific Mackerel") +
+  scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> mack_distribution_plot
+
+mack_distribution_plot
+
+survey_area_basemap +
+      geom_point(data = cces_nasc_density_ncc, aes(x = long, y = lat, size = her_density, color = her_density),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("gray", viridis(5))) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle("Pacific Herring") +
+  scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> her_distribution_plot
+
+her_distribution_plot
+
+survey_area_basemap +
+      geom_point(data = cces_nasc_density_ncc, aes(x = long, y = lat, size = jack_density, color = jack_density),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("gray", viridis(5))) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle("Jack Mackerel") +
+  scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> jack_distribution_plot
+
+jack_distribution_plot
+
+# survey_area_basemap +
+#       geom_point(data = cces_nasc_density_ncc, aes(x = long, y = lat, size = rher_density, color = rher_density),
+#                  alpha = 0.5) +
+#     scale_color_manual(values = c("gray", viridis(5))) +
+#     facet_wrap(~year, nrow = 2) +
+#     ggtitle("Pacific Round Herring") +
+#   scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+#   guides(colour = guide_legend(), size = guide_legend()) +
+#     theme(legend.key.height = unit(1, "cm"),
+#         legend.key.width = unit(1, "cm"),
+#         legend.title = element_text(size = 16),
+#         legend.text = element_text(size = 12),
+#         legend.position = "right",
+#         legend.spacing.y = unit(0.05, 'cm'),
+#         axis.text = element_text(size = 12),
+#         axis.title = element_text(size = 16),
+#         strip.text = element_text(size = 20),
+#         plot.title = element_text(size = 24)) -> rher_distribution_plot
+# 
+# rher_distribution_plot
+```
+
+```{r export_data_for_modeling}
+write.csv(cces_nasc_density_ncc, here::here("model_inputs", "CCES_data.csv"))
+
+```
+

@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Markus Min" />
+
+<meta name="date" content="2025-05-20" />
+
+<title>PRS + PWCC Exploratory Analysis</title>
+
+<script src="site_libs/header-attrs-2.26/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/flatly.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Home</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="project_background.html">Project Background</a>
+</li>
+<li>
+  <a href="project_description.html">Project Description</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+    Survey Descriptions
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="surveys_overview.html">Overview of NCC Surveys</a>
+    </li>
+    <li>
+      <a href="jsoes_survey_description.html">JSOES</a>
+    </li>
+    <li>
+      <a href="CCES_survey_description.html">CCES</a>
+    </li>
+    <li>
+      <a href="PRS_survey_description.html">PRS</a>
+    </li>
+    <li>
+      <a href="hake_survey_description.html">Hake</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+    Exploratory Analyses
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="exploratory_analyses_overview.html">Overview</a>
+    </li>
+    <li>
+      <a href="bongo_exploratory.html">JSOES Bongo</a>
+    </li>
+    <li>
+      <a href="jsoes_trawl_exploratory.html">JSOES Trawl</a>
+    </li>
+    <li>
+      <a href="cces_exploratory.html">CCES/CPS</a>
+    </li>
+    <li>
+      <a href="hake_exploratory.html">Hake</a>
+    </li>
+    <li>
+      <a href="PRS_PWCC_exploratory.html">PRS/PWCC</a>
+    </li>
+    <li>
+      <a href="pit_exploratory.html">PIT Tag Data</a>
+    </li>
+  </ul>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">PRS + PWCC Exploratory Analysis</h1>
+<h4 class="author">Markus Min</h4>
+<h4 class="date">2025-05-20</h4>
+
+</div>
+
+
+<p>This page contains exploratory analysis for the trawl data from the
+<a
+href="https://markusmin.github.io/JSOES-SDM/PRS_survey_description.html">Pre-Recruit
+and Pacific Whiting Conservation Cooperative surveys</a>. The PWCC
+survey covered our study area from 2005-2009, and the pre-recruit survey
+covers the years 2011-2024 (excluding 2012 and 2020).</p>
+<div id="data-overview" class="section level2">
+<h2>Data Overview</h2>
+<p>We will first explore the most common and most abundant taxa in this
+dataset.</p>
+<p>The comment field in this dataset are typically used to note 1)
+details about the data collection (e.g., “2 unmeasured”), 2) further
+details on the composition of that particular taxon in that haul (e.g.,
+“12 wild; 24 hatchery”), or a more specific species ID of that taxon
+(e.g., “Benthocodon pedunculata” when the taxon is “Hydrozoa”).</p>
+<pre><code>## [1] 79476</code></pre>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<caption>
+PRS: Top ten taxa by mean density.
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+taxon
+</th>
+<th style="text-align:right;">
+mean_number
+</th>
+<th style="text-align:right;">
+sd_number
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Euphausiidae
+</td>
+<td style="text-align:right;">
+18648.6
+</td>
+<td style="text-align:right;">
+67731.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Pyrosoma atlanticum
+</td>
+<td style="text-align:right;">
+1330.3
+</td>
+<td style="text-align:right;">
+6488.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Salpidae
+</td>
+<td style="text-align:right;">
+836.7
+</td>
+<td style="text-align:right;">
+3066.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Pleurobrachia
+</td>
+<td style="text-align:right;">
+359.7
+</td>
+<td style="text-align:right;">
+1743.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Ctenophora
+</td>
+<td style="text-align:right;">
+214.8
+</td>
+<td style="text-align:right;">
+2307.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Stenobrachius leucopsarus
+</td>
+<td style="text-align:right;">
+181.6
+</td>
+<td style="text-align:right;">
+1223.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Cymbuliidae
+</td>
+<td style="text-align:right;">
+160.1
+</td>
+<td style="text-align:right;">
+892.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sergestidae
+</td>
+<td style="text-align:right;">
+119.8
+</td>
+<td style="text-align:right;">
+546.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Merluccius productus
+</td>
+<td style="text-align:right;">
+110.6
+</td>
+<td style="text-align:right;">
+1009.8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Pandalus jordani
+</td>
+<td style="text-align:right;">
+104.8
+</td>
+<td style="text-align:right;">
+823.1
+</td>
+</tr>
+</tbody>
+</table>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<caption>
+PRS: Top ten taxa by frequency of occurrence.
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+taxon
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+prop_samples
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Euphausiidae
+</td>
+<td style="text-align:right;">
+220
+</td>
+<td style="text-align:right;">
+0.79
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Aequorea victoria
+</td>
+<td style="text-align:right;">
+155
+</td>
+<td style="text-align:right;">
+0.56
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Glyptocephalus zachirus
+</td>
+<td style="text-align:right;">
+150
+</td>
+<td style="text-align:right;">
+0.54
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Citharichthys sordidus
+</td>
+<td style="text-align:right;">
+147
+</td>
+<td style="text-align:right;">
+0.53
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Citharichthys stigmaeus
+</td>
+<td style="text-align:right;">
+143
+</td>
+<td style="text-align:right;">
+0.51
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Tarletonbeania crenularis
+</td>
+<td style="text-align:right;">
+112
+</td>
+<td style="text-align:right;">
+0.40
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Abraliopsis felis
+</td>
+<td style="text-align:right;">
+108
+</td>
+<td style="text-align:right;">
+0.39
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Salpidae
+</td>
+<td style="text-align:right;">
+108
+</td>
+<td style="text-align:right;">
+0.39
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Praya spp.
+</td>
+<td style="text-align:right;">
+107
+</td>
+<td style="text-align:right;">
+0.38
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Cymbuliidae
+</td>
+<td style="text-align:right;">
+104
+</td>
+<td style="text-align:right;">
+0.37
+</td>
+</tr>
+</tbody>
+</table>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<caption>
+PWCC: Top ten taxa by mean density.
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+common_name
+</th>
+<th style="text-align:right;">
+mean_number
+</th>
+<th style="text-align:right;">
+sd_number
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+NORTH PACIFIC HAKE
+</td>
+<td style="text-align:right;">
+105.0
+</td>
+<td style="text-align:right;">
+1324.9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+LANTERNFISH
+</td>
+<td style="text-align:right;">
+56.1
+</td>
+<td style="text-align:right;">
+240.3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PACIFIC HERRING
+</td>
+<td style="text-align:right;">
+27.3
+</td>
+<td style="text-align:right;">
+414.4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NORTHERN ANCHOVY
+</td>
+<td style="text-align:right;">
+19.2
+</td>
+<td style="text-align:right;">
+165.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SQUID
+</td>
+<td style="text-align:right;">
+15.9
+</td>
+<td style="text-align:right;">
+64.7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SMELT
+</td>
+<td style="text-align:right;">
+3.7
+</td>
+<td style="text-align:right;">
+24.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+WHITEBAIT SMELT
+</td>
+<td style="text-align:right;">
+2.5
+</td>
+<td style="text-align:right;">
+29.1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PACIFIC SARDINE
+</td>
+<td style="text-align:right;">
+2.5
+</td>
+<td style="text-align:right;">
+15.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NIGHT SMELT
+</td>
+<td style="text-align:right;">
+2.0
+</td>
+<td style="text-align:right;">
+18.2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ROCKFISH
+</td>
+<td style="text-align:right;">
+1.5
+</td>
+<td style="text-align:right;">
+11.5
+</td>
+</tr>
+</tbody>
+</table>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<caption>
+PWCC: Top ten taxa by frequency of occurrence.
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+common_name
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+prop_samples
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+NORTH PACIFIC HAKE
+</td>
+<td style="text-align:right;">
+157
+</td>
+<td style="text-align:right;">
+0.56
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SQUID
+</td>
+<td style="text-align:right;">
+140
+</td>
+<td style="text-align:right;">
+0.50
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+LANTERNFISH
+</td>
+<td style="text-align:right;">
+102
+</td>
+<td style="text-align:right;">
+0.36
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NORTHERN ANCHOVY
+</td>
+<td style="text-align:right;">
+60
+</td>
+<td style="text-align:right;">
+0.21
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PACIFIC SARDINE
+</td>
+<td style="text-align:right;">
+50
+</td>
+<td style="text-align:right;">
+0.18
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+REX SOLE
+</td>
+<td style="text-align:right;">
+48
+</td>
+<td style="text-align:right;">
+0.17
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+BUTTER SOLE
+</td>
+<td style="text-align:right;">
+41
+</td>
+<td style="text-align:right;">
+0.15
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ARROWTOOTH FLOUNDER
+</td>
+<td style="text-align:right;">
+38
+</td>
+<td style="text-align:right;">
+0.14
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CANARY ROCKFISH
+</td>
+<td style="text-align:right;">
+38
+</td>
+<td style="text-align:right;">
+0.14
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SLENDER SOLE
+</td>
+<td style="text-align:right;">
+35
+</td>
+<td style="text-align:right;">
+0.12
+</td>
+</tr>
+</tbody>
+</table>
+<pre><code>## # A tibble: 156 × 3
+##    taxon                         n prop_samples
+##    &lt;chr&gt;                     &lt;int&gt;        &lt;dbl&gt;
+##  1 Euphausiidae                220        0.791
+##  2 Aequorea victoria           155        0.558
+##  3 Glyptocephalus zachirus     150        0.540
+##  4 Citharichthys sordidus      147        0.529
+##  5 Citharichthys stigmaeus     143        0.514
+##  6 Tarletonbeania crenularis   112        0.403
+##  7 Abraliopsis felis           108        0.388
+##  8 Salpidae                    108        0.388
+##  9 Praya spp.                  107        0.385
+## 10 Cymbuliidae                 104        0.374
+## # ℹ 146 more rows</code></pre>
+<pre><code>## # A tibble: 65 × 3
+##    common_name             n prop_samples
+##    &lt;chr&gt;               &lt;int&gt;        &lt;dbl&gt;
+##  1 NORTH PACIFIC HAKE    157        0.559
+##  2 SQUID                 140        0.498
+##  3 LANTERNFISH           102        0.363
+##  4 NORTHERN ANCHOVY       60        0.214
+##  5 PACIFIC SARDINE        50        0.178
+##  6 REX SOLE               48        0.171
+##  7 BUTTER SOLE            41        0.146
+##  8 ARROWTOOTH FLOUNDER    38        0.135
+##  9 CANARY ROCKFISH        38        0.135
+## 10 SLENDER SOLE           35        0.125
+## # ℹ 55 more rows</code></pre>
+<p><img src="PRS_PWCC_exploratory_files/figure-html/compare_surveys-1.png" width="672" /></p>
+</div>
+<div id="plotting-distributions-of-some-common-taxa"
+class="section level2">
+<h2>Plotting distributions of some common taxa</h2>
+<p>Here are some static maps of common taxa: - Pacific sanddabs (very
+tasty!) - Citharichthys sordidus</p>
+<p><img src="PRS_PWCC_exploratory_files/figure-html/map_salmon-1.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/map_salmon-2.png" width="672" /></p>
+</div>
+<div id="in-situ-environmental-data" class="section level2">
+<h2>In situ environmental data</h2>
+<p>Except for 2013, the following environmental data was collected in
+situ by the PRS:</p>
+<ul>
+<li>Surface Temp (C)
+<ul>
+<li>Surface temp was also collected in 2013</li>
+</ul></li>
+<li>Temperature (30m C)<br />
+</li>
+<li>Fluorescence (30m V)<br />
+</li>
+<li>Salinity (30m PSU)<br />
+</li>
+<li>Density (30m sigma-theta, kg/m3)<br />
+</li>
+<li>Dissolved Oxygen (30m ml/l)</li>
+</ul>
+<p><img src="PRS_PWCC_exploratory_files/figure-html/environmental_data-1.png" width="672" /></p>
+</div>
+<div id="krill-investigation" class="section level2">
+<h2>Krill investigation</h2>
+<p>Krill get special treatment in the PRS data, with them being recorded
+in three separate sheets. These three sheets all sum to the same total
+number.</p>
+</div>
+<div id="selecting-taxa-to-model" class="section level2">
+<h2>Selecting taxa to model</h2>
+<p>Processing taxa - there are many notes from the spreadsheet that we
+will use to help us interpret taxon IDs. “*Did not speciate Gonatus
+after 2019.”</p>
+<ul>
+<li>There are four members of family Gonatidae in the dataset:
+“Gonatidae”, “Gonatopsis borealis”, “Gonatus onyx”, and “Gonatus
+spp.”</li>
+<li>There is a clear break in species IDs before and after 2020. What is
+odd though is that only one member of the genus Gonatus was ever
+identified before 2019, so it’s confusing that they would note that they
+stopped identifying to species level?</li>
+</ul>
+<p><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>Our criteria for generating SDMs are 1) data availability and 2)
+theoretical interactions with juvenile salmon.</p>
+<p>Friedman et al. (2018) identified 31 salmon forage species. These
+taxa were Armhook squid, Arrowtooth flounder, Barracudina, Blacktip
+squid, Combfish, Dover sole, Lingcod, Market squid, Myctophids, Northern
+anchovy, Octopus, Pacific hake, Pacific sand lance, Pacific sardine,
+Pacific tomcod, Painted greenling, Pandalus shrimp, Poacher, Rex sole,
+Rockfish, Ronquil / prickleback, Sand sole, Sanddab, Sculpin, Sergestid,
+Shrimp, Slender sole, Smelt, Snailfish, Turbot, and Krill.</p>
+<p>Daly et al. (2017) identified common diets in yearling Chinook salmon
+caught in the JSOES survey. The main taxa were Northern Anchovy,
+Clupeids, Cottids, Flatfish, Osmerids, Ronquils, Pacific s and lance,
+rockfishes, <em>Cancer</em> larvae, Euphausiids, Hyperiid amphipods,
+Non-<em>Cancer</em> crab larvae, and shrimp larvae.</p>
+<pre><code>## [1] &quot;Paralepididae&quot;           &quot;Zaniolepididae&quot;         
+## [3] &quot;Ammodytes hexapterus&quot;    &quot;Ronquilus / Stichaeidae&quot;
+## [5] &quot;Citharichthys spp.&quot;      &quot;Liparidae&quot;</code></pre>
+<pre><code>##   [1] &quot;Abraliopsis felis&quot;                 &quot;Aegina citrea&quot;                    
+##   [3] &quot;Aequorea victoria&quot;                 &quot;Agonidae&quot;                         
+##   [5] &quot;Agonopsis vulsa&quot;                   &quot;Allosmerus elongatus&quot;             
+##   [7] &quot;Alosa sapidissima&quot;                 &quot;Ammodytes spp.&quot;                   
+##   [9] &quot;Amphipoda&quot;                         &quot;Anarrhichthys ocellatus&quot;          
+##  [11] &quot;Anoplopoma fimbria&quot;                &quot;Aprodon cortezianus&quot;              
+##  [13] &quot;Argentinoidei&quot;                     &quot;Atheresthes stomias&quot;              
+##  [15] &quot;Aurelia spp.&quot;                      &quot;Bathyagonus nigripinnis&quot;          
+##  [17] &quot;Bathylagidae&quot;                      &quot;Beringraja binoculata&quot;            
+##  [19] &quot;Beroe spp.&quot;                        &quot;Berryteuthis spp.&quot;                
+##  [21] &quot;Brama japonica&quot;                    &quot;Cancer magister&quot;                  
+##  [23] &quot;Cancer spp.&quot;                       &quot;Carinaria spp.&quot;                   
+##  [25] &quot;Cavoliniidae&quot;                      &quot;Cephalopoda&quot;                      
+##  [27] &quot;Chaetognatha&quot;                      &quot;Chiroteuthis calyx&quot;               
+##  [29] &quot;Chrysaora fuscescens&quot;              &quot;Citharichthys sordidus&quot;           
+##  [31] &quot;Citharichthys stigmaeus&quot;           &quot;Clio pyramidata&quot;                  
+##  [33] &quot;Clupea pallasii&quot;                   &quot;Congriscus megastomus&quot;            
+##  [35] &quot;Cottidae&quot;                          &quot;Crangon spp.&quot;                     
+##  [37] &quot;Ctenophora&quot;                        &quot;Cyanea capillata&quot;                 
+##  [39] &quot;Cymbuliidae&quot;                       &quot;Diaphus theta&quot;                    
+##  [41] &quot;Doryteuthis opalescens&quot;            &quot;Embassichthys bathybius&quot;          
+##  [43] &quot;Engraulis mordax&quot;                  &quot;Euphausiidae&quot;                     
+##  [45] &quot;Gasterosteus aculeatus&quot;            &quot;Gastropoda&quot;                       
+##  [47] &quot;Glyptocephalus zachirus&quot;           &quot;Gonatidae&quot;                        
+##  [49] &quot;Gonatopsis borealis&quot;               &quot;Gonatus onyx&quot;                     
+##  [51] &quot;Gonatus spp.&quot;                      &quot;Hemilepidotus hemilepidotus&quot;      
+##  [53] &quot;Hemilepidotus spinosus&quot;            &quot;Hemilepidotus spp.&quot;               
+##  [55] &quot;Hexagrammidae&quot;                     &quot;Hexagrammos decagrammus&quot;          
+##  [57] &quot;Hippoglossoides elassodon&quot;         &quot;Hormiphora spp.&quot;                  
+##  [59] &quot;Hydrozoa&quot;                          &quot;Hypomesus pretiosus&quot;              
+##  [61] &quot;Icichthys lockingtoni&quot;             &quot;Icosteus aenigmaticus&quot;            
+##  [63] &quot;Isopsetta isolepis&quot;                &quot;Lepidopsetta bilineata&quot;           
+##  [65] &quot;Lestidiops ringens&quot;                &quot;Leuroglossus schmidti&quot;            
+##  [67] &quot;Leuroglossus stilbius&quot;             &quot;Liparis fucensis&quot;                 
+##  [69] &quot;Liparis spp.&quot;                      &quot;Lipolagus ochotensis&quot;             
+##  [71] &quot;Lyopsetta exilis&quot;                  &quot;Malacosteidae&quot;                    
+##  [73] &quot;Melanostomiidae&quot;                   &quot;Merluccius productus&quot;             
+##  [75] &quot;Microgadus proximus&quot;               &quot;Microstomus pacificus&quot;            
+##  [77] &quot;Mitrocomidae&quot;                      &quot;Myctophidae&quot;                      
+##  [79] &quot;Mysidacea&quot;                         &quot;Nannobrachium regale&quot;             
+##  [81] &quot;Natantia&quot;                          &quot;Octopoda&quot;                         
+##  [83] &quot;Octopoteuthis deletron&quot;            &quot;Odontopyxis trispinosa&quot;           
+##  [85] &quot;Oegopsida&quot;                         &quot;Oncorhynchus keta&quot;                
+##  [87] &quot;Oncorhynchus kisutch&quot;              &quot;Oncorhynchus spp.&quot;                
+##  [89] &quot;Oncorhynchus tshawytscha&quot;          &quot;Onychoteuthis borealijaponicus&quot;   
+##  [91] &quot;Ophiodon elongatus&quot;                &quot;Osmeridae&quot;                        
+##  [93] &quot;Oxylebius pictus&quot;                  &quot;Pandalus jordani&quot;                 
+##  [95] &quot;Parophrys vetulus&quot;                 &quot;Pasiphaea pacifica&quot;               
+##  [97] &quot;Peprilus simillimus&quot;               &quot;Periphylla periphylla&quot;            
+##  [99] &quot;Petromyzontidae&quot;                   &quot;Phacellophora camtschatica&quot;       
+## [101] &quot;Phosichthyidae&quot;                    &quot;Phronima spp.&quot;                    
+## [103] &quot;Platichthys stellatus&quot;             &quot;Plectobranchus evides&quot;            
+## [105] &quot;Pleurobrachia&quot;                     &quot;Pleuronectidae&quot;                   
+## [107] &quot;Pleuronichthys decurrens&quot;          &quot;Pleuronichthys spp.&quot;              
+## [109] &quot;Polychaeta&quot;                        &quot;Praya spp.&quot;                       
+## [111] &quot;Psettichthys melanostictus&quot;        &quot;Pteropoda&quot;                        
+## [113] &quot;Pyrosoma atlanticum&quot;               &quot;Ronquilus jordani&quot;                
+## [115] &quot;Salpidae&quot;                          &quot;Sardinops sagax&quot;                  
+## [117] &quot;Scomber japonicus&quot;                 &quot;Scorpaenichthys marmoratus&quot;       
+## [119] &quot;Scyphozoa&quot;                         &quot;Sebastes (Black/Yellowtail group)&quot;
+## [121] &quot;Sebastes (Copper group)&quot;           &quot;Sebastes (Rosy group)&quot;            
+## [123] &quot;Sebastes alutus&quot;                   &quot;Sebastes auriculatus&quot;             
+## [125] &quot;Sebastes babcocki&quot;                 &quot;Sebastes crameri&quot;                 
+## [127] &quot;Sebastes diploproa&quot;                &quot;Sebastes entomelas&quot;               
+## [129] &quot;Sebastes flavidus&quot;                 &quot;Sebastes goodei&quot;                  
+## [131] &quot;Sebastes jordani&quot;                  &quot;Sebastes melanops&quot;                
+## [133] &quot;Sebastes mystinus&quot;                 &quot;Sebastes paucispinis&quot;             
+## [135] &quot;Sebastes pinniger&quot;                 &quot;Sebastes reedi&quot;                   
+## [137] &quot;Sebastes ruberrimus&quot;               &quot;Sebastes rufus&quot;                   
+## [139] &quot;Sebastes saxicola&quot;                 &quot;Sebastes spp.&quot;                    
+## [141] &quot;Sebastes wilsoni&quot;                  &quot;Sebastes zacentrus&quot;               
+## [143] &quot;Sebastolobus spp.&quot;                 &quot;Sergestidae&quot;                      
+## [145] &quot;Squalus suckleyi&quot;                  &quot;Stenobrachius leucopsarus&quot;        
+## [147] &quot;Streetsia challengeri&quot;             &quot;Symbolophorus californiensis&quot;     
+## [149] &quot;Tactostoma macropus&quot;               &quot;Tarletonbeania crenularis&quot;        
+## [151] &quot;Thaleichthys pacificus&quot;            &quot;Thetys vagina&quot;                    
+## [153] &quot;Torpedo californica&quot;               &quot;Trachipterus altivelis&quot;           
+## [155] &quot;Trachurus symmetricus&quot;             &quot;Xeneretmus latifrons&quot;</code></pre>
+<pre><code>## # A tibble: 25 × 3
+##    taxon                          n prop_samples
+##    &lt;chr&gt;                      &lt;int&gt;        &lt;dbl&gt;
+##  1 Euphausiidae                 220        0.791
+##  2 Glyptocephalus zachirus      150        0.540
+##  3 Abraliopsis felis            108        0.388
+##  4 Sergestidae                   74        0.266
+##  5 Psettichthys melanostictus    70        0.252
+##  6 Microstomus pacificus         69        0.248
+##  7 Lyopsetta exilis              63        0.227
+##  8 Sebastes spp.                 62        0.223
+##  9 Engraulis mordax              55        0.198
+## 10 Merluccius productus          53        0.191
+## # ℹ 15 more rows</code></pre>
+<pre><code>##  [1] &quot;NORTH PACIFIC HAKE&quot;    &quot;SQUID&quot;                 &quot;LANTERNFISH&quot;          
+##  [4] &quot;NORTHERN ANCHOVY&quot;      &quot;PACIFIC SARDINE&quot;       &quot;REX SOLE&quot;             
+##  [7] &quot;BUTTER SOLE&quot;           &quot;ARROWTOOTH FLOUNDER&quot;   &quot;CANARY ROCKFISH&quot;      
+## [10] &quot;SLENDER SOLE&quot;          &quot;BARRACUDINA&quot;           &quot;SMELT&quot;                
+## [13] &quot;ROCKFISH&quot;              &quot;WIDOW ROCKFISH&quot;        &quot;DOVER SOLE&quot;           
+## [16] &quot;CABEZON&quot;               &quot;DARKBLOTCHED ROCKFISH&quot; &quot;YELLOWTAIL ROCKFISH&quot;  
+## [19] &quot;GREENLING&quot;             &quot;KING-OF-THE-SALMON&quot;    &quot;SCULPIN&quot;              
+## [22] &quot;NIGHT SMELT&quot;           &quot;PACIFIC HERRING&quot;       &quot;BLUE ROCKFISH&quot;        
+## [25] &quot;PACIFIC SANDLANCE&quot;     &quot;POACHER&quot;               &quot;BLACK ROCKFISH&quot;       
+## [28] &quot;MARKET SQUID&quot;          &quot;PACIFIC SPINY DOGFISH&quot; &quot;PACIFIC SANDDAB&quot;      
+## [31] &quot;PACIFIC TOMCOD&quot;        &quot;SNAILFISH&quot;             &quot;WHITEBAIT SMELT&quot;      
+## [34] &quot;SHORTBELLY ROCKFISH&quot;   &quot;COD&quot;                   &quot;HUMBOLDT SQUID&quot;       
+## [37] &quot;SALMON&quot;                &quot;SANDDAB&quot;               &quot;BOCACCIO&quot;             
+## [40] &quot;LINGCOD&quot;               &quot;MEDUSAFISH&quot;            &quot;LAMPREY&quot;              
+## [43] &quot;TURBOT&quot;                &quot;OCTOPUS&quot;               &quot;YELLOWMOUTH ROCKFISH&quot; 
+## [46] &quot;CHILIPEPPER&quot;           &quot;CHUM SALMON&quot;           &quot;EELPOUT&quot;              
+## [49] &quot;PACIFIC COD&quot;           &quot;PACIFIC SAND SOLE&quot;     &quot;SABLEFISH&quot;            
+## [52] &quot;STRIPETAIL ROCKFISH&quot;   &quot;AMERICAN SHAD&quot;         &quot;CURLFIN SOLE&quot;         
+## [55] &quot;DEEP-SEA SMELT&quot;        &quot;FISH&quot;                  &quot;KING SALMON&quot;          
+## [58] &quot;PACIFIC MACKEREL&quot;      &quot;PACIFIC SAURY&quot;         &quot;PAINTED GREENLING&quot;    
+## [61] &quot;PETRALE SOLE&quot;          &quot;PLAINFIN MIDSHIPMAN&quot;   &quot;RONQUIL&quot;              
+## [64] &quot;SHRIMP&quot;                &quot;SKATE&quot;</code></pre>
+<pre><code>##   [1] &quot;Euphausiidae&quot;                      &quot;Aequorea victoria&quot;                
+##   [3] &quot;Glyptocephalus zachirus&quot;           &quot;Citharichthys sordidus&quot;           
+##   [5] &quot;Citharichthys stigmaeus&quot;           &quot;Tarletonbeania crenularis&quot;        
+##   [7] &quot;Abraliopsis felis&quot;                 &quot;Salpidae&quot;                         
+##   [9] &quot;Praya spp.&quot;                        &quot;Cymbuliidae&quot;                      
+##  [11] &quot;Pyrosoma atlanticum&quot;               &quot;Gonatus onyx&quot;                     
+##  [13] &quot;Stenobrachius leucopsarus&quot;         &quot;Thetys vagina&quot;                    
+##  [15] &quot;Sebastes crameri&quot;                  &quot;Sebastes pinniger&quot;                
+##  [17] &quot;Diaphus theta&quot;                     &quot;Phronima spp.&quot;                    
+##  [19] &quot;Carinaria spp.&quot;                    &quot;Sergestidae&quot;                      
+##  [21] &quot;Psettichthys melanostictus&quot;        &quot;Lestidiops ringens&quot;               
+##  [23] &quot;Microstomus pacificus&quot;             &quot;Lyopsetta exilis&quot;                 
+##  [25] &quot;Sebastes spp.&quot;                     &quot;Sebastes spp.&quot;                    
+##  [27] &quot;Hormiphora spp.&quot;                   &quot;Chiroteuthis calyx&quot;               
+##  [29] &quot;Engraulis mordax&quot;                  &quot;Sebastes jordani&quot;                 
+##  [31] &quot;Merluccius productus&quot;              &quot;Clupea pallasii&quot;                  
+##  [33] &quot;Phacellophora camtschatica&quot;        &quot;Sebastes entomelas&quot;               
+##  [35] &quot;Doryteuthis opalescens&quot;            &quot;Atheresthes stomias&quot;              
+##  [37] &quot;Osmeridae&quot;                         &quot;Chrysaora fuscescens&quot;             
+##  [39] &quot;Isopsetta isolepis&quot;                &quot;Pleurobrachia&quot;                    
+##  [41] &quot;Gonatopsis borealis&quot;               &quot;Gonatus spp.&quot;                     
+##  [43] &quot;Sebastes flavidus&quot;                 &quot;Symbolophorus californiensis&quot;     
+##  [45] &quot;Icichthys lockingtoni&quot;             &quot;Cancer magister&quot;                  
+##  [47] &quot;Amphipoda&quot;                         &quot;Lipolagus ochotensis&quot;             
+##  [49] &quot;Microgadus proximus&quot;               &quot;Sebastes reedi&quot;                   
+##  [51] &quot;Pandalus jordani&quot;                  &quot;Sardinops sagax&quot;                  
+##  [53] &quot;Sebastes paucispinis&quot;              &quot;Allosmerus elongatus&quot;             
+##  [55] &quot;Beroe spp.&quot;                        &quot;Hemilepidotus spp.&quot;               
+##  [57] &quot;Onychoteuthis borealijaponicus&quot;    &quot;Ronquilus jordani&quot;                
+##  [59] &quot;Thaleichthys pacificus&quot;            &quot;Trachipterus altivelis&quot;           
+##  [61] &quot;Aurelia spp.&quot;                      &quot;Octopoda&quot;                         
+##  [63] &quot;Sebastes mystinus&quot;                 &quot;Agonopsis vulsa&quot;                  
+##  [65] &quot;Parophrys vetulus&quot;                 &quot;Hippoglossoides elassodon&quot;        
+##  [67] &quot;Liparis fucensis&quot;                  &quot;Hydrozoa&quot;                         
+##  [69] &quot;Ctenophora&quot;                        &quot;Sebastes melanops&quot;                
+##  [71] &quot;Pleuronichthys decurrens&quot;          &quot;Sebastes saxicola&quot;                
+##  [73] &quot;Oegopsida&quot;                         &quot;Pteropoda&quot;                        
+##  [75] &quot;Sebastes (Copper group)&quot;           &quot;Sebastes alutus&quot;                  
+##  [77] &quot;Sebastes goodei&quot;                   &quot;Tactostoma macropus&quot;              
+##  [79] &quot;Trachurus symmetricus&quot;             &quot;Ammodytes spp.&quot;                   
+##  [81] &quot;Octopoteuthis deletron&quot;            &quot;Oncorhynchus tshawytscha&quot;         
+##  [83] &quot;Scorpaenichthys marmoratus&quot;        &quot;Crangon spp.&quot;                     
+##  [85] &quot;Liparis spp.&quot;                      &quot;Mitrocomidae&quot;                     
+##  [87] &quot;Sebastes (Black/Yellowtail group)&quot; &quot;Streetsia challengeri&quot;            
+##  [89] &quot;Aegina citrea&quot;                     &quot;Bathylagidae&quot;                     
+##  [91] &quot;Peprilus simillimus&quot;               &quot;Pleuronectidae&quot;                   
+##  [93] &quot;Sebastes wilsoni&quot;                  &quot;Clio pyramidata&quot;                  
+##  [95] &quot;Lepidopsetta bilineata&quot;            &quot;Anoplopoma fimbria&quot;               
+##  [97] &quot;Cottidae&quot;                          &quot;Embassichthys bathybius&quot;          
+##  [99] &quot;Oncorhynchus keta&quot;                 &quot;Scyphozoa&quot;                        
+## [101] &quot;Sebastes babcocki&quot;                 &quot;Anarrhichthys ocellatus&quot;          
+## [103] &quot;Leuroglossus stilbius&quot;             &quot;Malacosteidae&quot;                    
+## [105] &quot;Scomber japonicus&quot;                 &quot;Sebastes diploproa&quot;               
+## [107] &quot;Squalus suckleyi&quot;                  &quot;Chaetognatha&quot;                     
+## [109] &quot;Congriscus megastomus&quot;             &quot;Cyanea capillata&quot;                 
+## [111] &quot;Gastropoda&quot;                        &quot;Icosteus aenigmaticus&quot;            
+## [113] &quot;Myctophidae&quot;                       &quot;Oncorhynchus spp.&quot;                
+## [115] &quot;Ophiodon elongatus&quot;                &quot;Petromyzontidae&quot;                  
+## [117] &quot;Sebastes (Rosy group)&quot;             &quot;Sebastolobus spp.&quot;                
+## [119] &quot;Argentinoidei&quot;                     &quot;Bathyagonus nigripinnis&quot;          
+## [121] &quot;Berryteuthis spp.&quot;                 &quot;Cephalopoda&quot;                      
+## [123] &quot;Gasterosteus aculeatus&quot;            &quot;Hexagrammos decagrammus&quot;          
+## [125] &quot;Hypomesus pretiosus&quot;               &quot;Melanostomiidae&quot;                  
+## [127] &quot;Nannobrachium regale&quot;              &quot;Natantia&quot;                         
+## [129] &quot;Odontopyxis trispinosa&quot;            &quot;Pasiphaea pacifica&quot;               
+## [131] &quot;Sebastes ruberrimus&quot;               &quot;Sebastes zacentrus&quot;               
+## [133] &quot;Xeneretmus latifrons&quot;              &quot;Agonidae&quot;                         
+## [135] &quot;Alosa sapidissima&quot;                 &quot;Aprodon cortezianus&quot;              
+## [137] &quot;Beringraja binoculata&quot;             &quot;Brama japonica&quot;                   
+## [139] &quot;Cancer spp.&quot;                       &quot;Cavoliniidae&quot;                     
+## [141] &quot;Gonatidae&quot;                         &quot;Hemilepidotus hemilepidotus&quot;      
+## [143] &quot;Hemilepidotus spinosus&quot;            &quot;Hexagrammidae&quot;                    
+## [145] &quot;Leuroglossus schmidti&quot;             &quot;Mysidacea&quot;                        
+## [147] &quot;Oncorhynchus kisutch&quot;              &quot;Oxylebius pictus&quot;                 
+## [149] &quot;Oxylebius pictus&quot;                  &quot;Periphylla periphylla&quot;            
+## [151] &quot;Phosichthyidae&quot;                    &quot;Platichthys stellatus&quot;            
+## [153] &quot;Plectobranchus evides&quot;             &quot;Pleuronichthys spp.&quot;              
+## [155] &quot;Polychaeta&quot;                        &quot;Sebastes auriculatus&quot;             
+## [157] &quot;Sebastes rufus&quot;                    &quot;Torpedo californica&quot;</code></pre>
+<pre><code>##                                 taxon               group
+## 1                        Gonatus spp.       armhook squid
+## 2                 Atheresthes stomias          flatfishes
+## 3                       Paralepididae         barracudina
+## 4                   Abraliopsis felis      blacktip squid
+## 5                      Zaniolepididae            combfish
+## 6               Microstomus pacificus          flatfishes
+## 7                  Ophiodon elongatus             lingcod
+## 8              Doryteuthis opalescens        market squid
+## 9                         Myctophidae          myctophids
+## 10                   Engraulis mordax    northern anchovy
+## 11                           Octopoda              octpus
+## 12               Merluccius productus                hake
+## 13               Ammodytes hexapterus  Pacific sand lance
+## 14                    Sardinops sagax     Pacific sardine
+## 15                Microgadus proximus      Pacific tomcod
+## 16                   Oxylebius pictus            combfish
+## 17                   Pandalus jordani     Pandalus shrimp
+## 18                           Agonidae            poachers
+## 19            Glyptocephalus zachirus          flatfishes
+## 20                      Sebastes spp.          rockfishes
+## 21            Ronquilus / Stichaeidae ronquil/prickleback
+## 22         Psettichthys melanostictus          flatfishes
+## 23                 Citharichthys spp.          flatfishes
+## 24                           Cottidae            sculpins
+## 25                        Sergestidae    sergestid shrimp
+## 26                           Natantia              shrimp
+## 27                   Lyopsetta exilis          flatfishes
+## 28                          Osmeridae            osmerids
+## 29                          Liparidae         snailfishes
+## 30                Pleuronichthys spp.          flatfishes
+## 31                       Euphausiidae               krill
+## 32                 Lestidiops ringens         barracudina
+## 33                   Oxylebius pictus            combfish
+## 34                     Ammodytes spp.  Pacific sand lance
+## 35                  Ronquilus jordani ronquil/prickleback
+## 36              Plectobranchus evides ronquil/prickleback
+## 37             Citharichthys sordidus          flatfishes
+## 38            Citharichthys stigmaeus          flatfishes
+## 39                   Liparis fucensis         snailfishes
+## 40                       Liparis spp.         snailfishes
+## 41  Sebastes (Black/Yellowtail group)          rockfishes
+## 42            Sebastes (Copper group)          rockfishes
+## 43              Sebastes (Rosy group)          rockfishes
+## 44                    Sebastes alutus          rockfishes
+## 45               Sebastes auriculatus          rockfishes
+## 46                  Sebastes babcocki          rockfishes
+## 47                   Sebastes crameri          rockfishes
+## 48                 Sebastes diploproa          rockfishes
+## 49                 Sebastes entomelas          rockfishes
+## 50                  Sebastes flavidus          rockfishes
+## 51                    Sebastes goodei          rockfishes
+## 52                   Sebastes jordani          rockfishes
+## 53                  Sebastes melanops          rockfishes
+## 54                  Sebastes mystinus          rockfishes
+## 55               Sebastes paucispinis          rockfishes
+## 56                  Sebastes pinniger          rockfishes
+## 57                     Sebastes reedi          rockfishes
+## 58                Sebastes ruberrimus          rockfishes
+## 59                     Sebastes rufus          rockfishes
+## 60                  Sebastes saxicola          rockfishes
+## 61                      Sebastes spp.          rockfishes
+## 62                   Sebastes wilsoni          rockfishes
+## 63                 Sebastes zacentrus          rockfishes
+## 64                  Sebastolobus spp.          rockfishes
+## 65          Tarletonbeania crenularis          myctophids
+## 66          Stenobrachius leucopsarus          myctophids
+## 67                      Diaphus theta          myctophids
+## 68               Nannobrachium regale          myctophids
+## 69               Lipolagus ochotensis         bathylagids
+## 70                       Bathylagidae         bathylagids
+## 71              Leuroglossus stilbius         bathylagids
+## 72              Leuroglossus schmidti         bathylagids
+## 73                       Gonatus onyx       armhook squid
+## 74                Gonatopsis borealis       armhook squid
+## 75                          Gonatidae       armhook squid
+## 76                 Hemilepidotus spp.            poachers
+## 77                    Agonopsis vulsa            poachers
+## 78         Scorpaenichthys marmoratus            sculpins
+## 79            Bathyagonus nigripinnis            poachers
+## 80             Odontopyxis trispinosa            poachers
+## 81               Xeneretmus latifrons            poachers
+## 82        Hemilepidotus hemilepidotus            poachers
+## 83             Hemilepidotus spinosus            poachers
+## 84                       Crangon spp.      crangon shrimp
+## 85              Streetsia challengeri           amphipods
+## 86                          Mysidacea        mysid shrimp
+## 87                        Cancer spp.        Cancer crabs
+## 88                      Phronima spp.           amphipods
+## 89                    Clupea pallasii            clupeids
+## 90                 Isopsetta isolepis          flatfishes
+## 91                    Cancer magister        Cancer crabs
+## 92                          Amphipoda           amphipods
+## 93               Allosmerus elongatus            osmerids
+## 94             Thaleichthys pacificus            osmerids
+## 95                  Parophrys vetulus          flatfishes
+## 96          Hippoglossoides elassodon          flatfishes
+## 97           Pleuronichthys decurrens          flatfishes
+## 98                     Pleuronectidae          flatfishes
+## 99             Lepidopsetta bilineata          flatfishes
+## 100                 Alosa sapidissima            clupeids
+## 101           Embassichthys bathybius          flatfishes
+## 102                     Argentinoidei            osmerids
+## 103               Hypomesus pretiosus            osmerids</code></pre>
+<p>Observations of PWCC species identifications:</p>
+<ul>
+<li>There aren’t any gelatinous zooplankton IDs. There are also aren’t
+any krill (which we know they must have caught). Probably were focused
+on identifying squids and fishes</li>
+<li>John Field noted that they were hake fishermen, so the IDs for many
+taxa are spotty. But if what we care about is characterizing the overall
+forage base, and if “flatfishes” is good enough for our purposes, then
+these IDs should be fine.</li>
+<li>There are some IDs that are very coarse in the PWCC data, for
+example “squid”. They also ID “market squid” separately. So perhaps it
+would be safe to assume “squid” are all squid that aren’t market squid.
+But maybe there are temporal patterns in species IDs?
+<ul>
+<li>In the code below, there’s nothing that stands out drastically</li>
+</ul></li>
+</ul>
+<p><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-1.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-2.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-3.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-4.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-5.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-6.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-7.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-8.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-9.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-10.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-11.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-12.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-13.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-14.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-15.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-16.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-17.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-18.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-19.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-20.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-21.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-22.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-23.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-24.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-25.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-26.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-27.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-28.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-29.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-30.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-31.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-32.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-33.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-34.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-35.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-36.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-37.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-38.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-39.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-40.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-41.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-42.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-43.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-44.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-45.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-46.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-47.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-48.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-49.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-50.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-51.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-52.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-53.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-54.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-55.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-56.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-57.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-58.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-59.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-60.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-61.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-62.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-63.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-64.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-65.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-66.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-67.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-68.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-69.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-70.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-71.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-72.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-73.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-74.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-75.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-76.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-77.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-78.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-79.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-80.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-81.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-82.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-83.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-84.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-85.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-86.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-87.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-88.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-89.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-90.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-91.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-92.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-93.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-94.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-95.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-96.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-97.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-3-98.png" width="672" /></p>
+</div>
+<div id="exploration-of-broad-groups" class="section level2">
+<h2>Exploration of broad groups</h2>
+<p>Here, we will look at patterns in functional groups of salmon forage
+taxa (e.g., rockfishes, flatfishes, etc.)</p>
+<pre><code>## 
+##      blacktip squid      crangon shrimp                hake               krill 
+##                   1                   1                   1                   1 
+##             lingcod        market squid        mysid shrimp    northern anchovy 
+##                   1                   1                   1                   1 
+##              octpus     Pacific sardine      Pacific tomcod     Pandalus shrimp 
+##                   1                   1                   1                   1 
+##    sergestid shrimp              shrimp         barracudina        Cancer crabs 
+##                   1                   1                   2                   2 
+##            clupeids  Pacific sand lance            sculpins           amphipods 
+##                   2                   2                   2                   3 
+##            combfish ronquil/prickleback         snailfishes       armhook squid 
+##                   3                   3                   3                   4 
+##         bathylagids          myctophids            osmerids            poachers 
+##                   4                   5                   5                   8 
+##          flatfishes          rockfishes 
+##                  16                  25</code></pre>
+<p><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-1.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-2.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-3.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-4.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-5.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-6.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-7.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-8.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-9.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-10.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-11.png" width="672" /></p>
+<pre><code>## 
+##         barracudina         bathylagids            clupeids                hake 
+##                   1                   1                   1                   1 
+##             lingcod        market squid          myctophids    northern anchovy 
+##                   1                   1                   1                   1 
+##             octopus   Pacific sandlance     Pacific sardine      Pacific tomcod 
+##                   1                   1                   1                   1 
+##            poachers ronquil/prickleback              shrimp         snailfishes 
+##                   1                   1                   1                   1 
+##               squid                 cod            sculpins            osmerids 
+##                   1                   2                   2                   4 
+##          flatfishes          rockfishes 
+##                  11                  12</code></pre>
+<p><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-12.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-13.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-14.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-15.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-16.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-17.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-18.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-19.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-20.png" width="672" /><img src="PRS_PWCC_exploratory_files/figure-html/unnamed-chunk-4-21.png" width="672" /></p>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

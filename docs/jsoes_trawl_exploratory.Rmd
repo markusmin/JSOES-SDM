@@ -7,6 +7,8 @@ output:
 ---
 This page contains exploratory analysis for the trawl data from [JSOES](https://markusmin.github.io/JSOES-SDM/jsoes_survey_description.html).
 
+In this document, I will characterize general patterns in this dataset, and then visualize both our focal salmon stocks and some key groups of salmon forage that are caught in this survey. This document also contains the scripts to export these groups, formatted for inclusion in the model.
+
 ## Data Overview
 
 We will first explore the most common and most abundant taxa in this dataset.
@@ -31,7 +33,10 @@ library(ggthemes)
 library(ape)
 
 #### Species data ####
-jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.2.24_FINAL.xlsx")))
+jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.15.25_FINAL.xlsx")))
+
+# for now, just keep June, but we also have May data now
+jsoes <- subset(jsoes, month == "June")
 
 species_column_names <- colnames(jsoes)[32:ncol(jsoes)]
 
@@ -221,21 +226,14 @@ subset(jsoes_freq_occ, grepl("salmon", species) & prop_samples > 0.05)
 
 
 
-## Plotting distributions of some common taxa
+## Plotting distributions of focal Chinook stocks
 
-I am currently developing a Shiny app that will allow you to visualize the distributions of different taxa. For now, I provide static maps of four focal taxa for this survey:
-
-- Yearling Coho Salmon
-- Yearling Interior Columbia Fall Chinook Salmon
-- Yearling Interior Columbia Spring Chinook Salmon
-- Water Jellies
+Our study focuses on Interior Chinook. Here, I visualize the distributions of Interior Fall Chinook (yearlings and subyearlings) and Interior Spring Chinook (yearlings)
 
 ```{r prep_salmon_data}
 csyis <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_sp")
-coho <- subset(jsoes_long, species == "coho_salmon_yearling")
 csyif <- subset(jsoes_long, species == "chinook_salmon_yearling_interior_fa")
 cssif <- subset(jsoes_long, species == "chinook_salmon_subyearling_interior_fa")
-water_jellies <- subset(jsoes_long, species == "water_jelly")
 ```
 
 
@@ -266,265 +264,89 @@ survey_area_basemap +
   return(species_distribution_plot)
 }
 
-coho_dist_plot <- plot_distribution(data = coho, taxon_name = "Yearling Coho Salmon")
+# coho_dist_plot <- plot_distribution(data = coho, taxon_name = "Yearling Coho Salmon")
 csyis_dist_plot <- plot_distribution(data = csyis, taxon_name = "Yearling Interior Columbia Spring Chinook")
 csyif_dist_plot <- plot_distribution(data = csyif, taxon_name = "Yearling Interior Columbia Fall Chinook")
 cssif_dist_plot <- plot_distribution(data = cssif, taxon_name = "Subyearling Interior Columbia Fall Chinook")
-water_jellies_dist_plot <- plot_distribution(data = water_jellies, taxon_name = "Water Jellies")
+# water_jellies_dist_plot <- plot_distribution(data = water_jellies, taxon_name = "Water Jellies")
 
-coho_dist_plot
+# coho_dist_plot
 csyis_dist_plot
 csyif_dist_plot
 cssif_dist_plot
-water_jellies_dist_plot
+# water_jellies_dist_plot
 
 ggsave(here::here("figures", "csyis_distribution_plot.png"), plot = csyis_dist_plot, height = 12, width = 17)
 ggsave(here::here("figures", "csyif_distribution_plot.png"), plot = csyif_dist_plot, height = 12, width = 17)
 ggsave(here::here("figures", "cssif_distribution_plot.png"), plot = cssif_dist_plot, height = 12, width = 17)
-ggsave(here::here("figures", "coho_distribution_plot.png"), plot = coho_dist_plot, height = 12, width = 17)
-ggsave(here::here("figures", "water_jellies_distribution_plot.png"), plot = water_jellies_dist_plot, height = 12, width = 17)
+# ggsave(here::here("figures", "coho_distribution_plot.png"), plot = coho_dist_plot, height = 12, width = 17)
+# ggsave(here::here("figures", "water_jellies_distribution_plot.png"), plot = water_jellies_dist_plot, height = 12, width = 17)
 
 ```
 
 
-## Temporal and Spatial Autocorrelation
 
-Before fitting any spatiotemporal models, we must explore the spatial and temporal autocorrelation in the data.
+## Exploration of broad groups
 
-<br>
+In addition to our focal Chinook stocks, the JSOES trawl also captures some other key taxa. These include:
 
-### Temporal structure
+- Market Squid ("california_market_squid") - prey item
+- Sablefish ("sablefish") - competitor
+- American shad ("american_shad") - prey item
+- Pacific Pompano ("pacific_pompano") - competitor
 
-We can first inspect the autocorrelation in our four focal taxa, at the scale of the full survey region:
+The distributions of these taxa are shown below:
 
-```{r coastwide_temporal_autocorrelation}
-create_time_series <- function(data, taxon){
-  data %>% 
-    filter(year != 1998)  %>% 
-    mutate(log_density = log(n_per_km + 1)) %>% 
-    group_by(year) %>% 
-    summarise(mean_density = mean(log_density),
-              sd_density = sd(log_density)) %>% 
-    # mutate(CI_95_upper = mean_density + 1.96*sd_density) %>% 
-    # mutate(CI_95_lower = mean_density - 1.96*sd_density) %>% 
-    mutate(taxon = taxon) -> ts
-  
-  return(ts)
+```{r}
+market_squid <- subset(jsoes_long, species == "california_market_squid")
+sablefish <- subset(jsoes_long, species == "sablefish")
+american_shad <- subset(jsoes_long, species == "american_shad")
+pompano <- subset(jsoes_long, species == "pacific_pompano")
+
+market_squid_dist_plot <- plot_distribution(data = market_squid, taxon_name = "california_market_squid")
+sablefish_dist_plot <- plot_distribution(data = sablefish, taxon_name = "sablefish")
+shad_dist_plot <- plot_distribution(data = american_shad, taxon_name = "american_shad")
+pompano_dist_plot <- plot_distribution(data = pompano, taxon_name = "pacific_pompano")
+
+market_squid_dist_plot
+sablefish_dist_plot
+shad_dist_plot
+pompano_dist_plot
+
+ggsave(here::here("figures", "market_squid_dist_plot.png"), plot = market_squid_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "sablefish_dist_plot.png"), plot = sablefish_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "shad_dist_plot.png"), plot = shad_dist_plot, height = 12, width = 17)
+ggsave(here::here("figures", "pompano_dist_plot.png"), plot = pompano_dist_plot, height = 12, width = 17)
+
+```
+
+## Export data
+
+In the last section of this script, we will export the following functional groups for inclusion in spatiotemporal models. The data will be formatted as the total density of each functional group at each station.
+
+- Market Squid ("california_market_squid") - prey item
+- Sablefish ("sablefish") - competitor
+- American shad ("american_shad") - prey item
+- Pacific Pompano ("pacific_pompano") - competitor
+
+```{r}
+export_species_data <- function(data, taxon_name, export_path){
+  taxon_data <- subset(data, species == taxon_name)
+
+  write.csv(taxon_data, export_path, row.names = FALSE)
 }
 
-create_time_series(data = csyis,
-                   taxon = "Interior Columbia Yearling Spring Chinook") -> csyis_ts
-create_time_series(data = csyif,
-                   taxon = "Interior Columbia Yearling Fall Chinook") -> csyif_ts
-create_time_series(data = coho,
-                   taxon = "Yearling Coho Salmon") -> coho_ts
-create_time_series(data = water_jellies,
-                   taxon = "Water Jellies") -> water_jellies_ts
-# It would make sense to try different spatial structures and then test autocorrelation.
-# 1) Coastwide; 2) By transect; 3) By station
+export_species_data(data = jsoes_long, taxon_name = "california_market_squid",
+                  export_path = here::here("model_inputs", "jsoes_trawl_california_market_squid.csv"))
 
-acf(csyis_ts$mean_density, main = "Interior Columbia Yearling Spring Chinook")
-acf(csyif_ts$mean_density, main = "Interior Columbia Yearling Fall Chinook")
-acf(coho_ts$mean_density, main = "Yearling Coho Salmon")
-acf(water_jellies_ts$mean_density, main = "Water Jellies")
-    
+export_species_data(data = jsoes_long, taxon_name = "sablefish",
+                  export_path = here::here("model_inputs", "jsoes_trawl_sablefish.csv"))
+
+export_species_data(data = jsoes_long, taxon_name = "american_shad",
+                  export_path = here::here("model_inputs", "jsoes_trawl_american_shad.csv"))
+
+export_species_data(data = jsoes_long, taxon_name = "pacific_pompano",
+                  export_path = here::here("model_inputs", "jsoes_trawl_pacific_pompano.csv"))
 ```
 
-None of the four taxa investigated here show temporal autocorrelation.
-
-I also investigated temporal autocorrelation at the scale of individual stations, and found little evidence for temporal autocorrelation at this scale for these four taxa.
-
-
-<br>
-
-### Spatial structure
-
-To investigate spatial autocorrelation, I calculated a metric known as Moran's I. Moran's I is a measure of the overall clustering of the spatial data and tests if there is support to reject the null hypothesis of no spatial structure. Given that we did not see much evidence for temporal autocorrelation, I calculated Moran's I separately for each year. To summarize the Moran's I results, I show the p-value for Moran's I for each year, with the blue dashed line showing a p-value of 0.05.
-
-```{r spatial_autocorrelation_functions}
-# If you wanted to add a best fit line:
-# A best fit line is then plotted through the points.
-# For each year, we will plot the best fit semivariogram model, which we selected from a set of five candidate functional response shapes: 1) Exponential, 2) Spherical, 3) Gaussian, 4) Linear, and 5) Nugget only (y-intercept only).
-
-
-
-# Set the models to test
-# To see the shape of these models, run `show.vgms()`
-model.choices <- vgm(model = c("Nug", "Exp", "Sph", "Gau", "Lin"))
-
-# Function to plot the best fit variogram for a species in a year
-# We are going to use 200 km as our cutoff: That should more or less encompass 
-# stations that are one transect apart from each other (transects are separated
-# by a little less than one degree latitude, which is about 110 km),
-# and the extra is to include stations that are on neighboring transects
-# but on opposite ends of the transect
-# We will bin by every 10 km; this should get neighboring stations but not 
-# stations that are two stations away
-fit_variogram_one_year <- function(data,  select_year){
-  data_subset <- subset(data, year == select_year)
-  coordinates(data_subset) = ~X+Y
-  
-  # Fit isotropic variogram
-  iso_v <- variogram(log(n_per_km+1)~1, data = data_subset, cloud=F,
-                     cutoff = 200, width = 10)
-  model.choices <- vgm(model = c("Nug", "Exp", "Sph", "Gau", "Lin"))
-  variogram_bestfit <- fit.variogram(iso_v, model.choices)
-  
-  # plot(iso_v, pl=F, model=variogram_bestfit,col="black", cex=1, lwd=0.5,lty=1,pch=20,
-  #    main = paste(select_year), xlab="Distance (km)",ylab="Semivariance",
-  #    xaxt = "n",
-  #    xlim = c(-5, 205))
-    plot(iso_v, pl=F,col="black", cex=1, lwd=0.5,lty=1,pch=20,
-     main = paste(select_year), xlab="Distance (km)",ylab="Semivariance",
-     xaxt = "n",
-     xlim = c(-5, 205))
-}
-
-# compute Moran's I in any given year
-calculate_moranI_one_year <- function(data, select_year){
-  # function based on code from here: https://stats.oarc.ucla.edu/r/faq/how-can-i-calculate-morans-i-in-r/
-  
-  # subset data
-  data_subset <- subset(data, year == select_year)
-  
-  # get distances between samples
-  sample.dists <- as.matrix(dist(cbind(data_subset$X, data_subset$Y)))
-  
-  # get inverse of matrix values and replace diagonals with zero
-  sample.dists.inv <- 1/sample.dists
-  diag(sample.dists.inv) <- 0
-  
-  # calculate Moran's I for the log density
-  moran_results <- Moran.I(log(data_subset$n_per_km+1), sample.dists.inv)
-  
-  return(moran_results$p.value)
-}
-
-```
-
-<br>
-
-
-<br>
-
-```{r spatial_autocorrelation_coho, fig.show = "hold", out.width = "25%"}
-### Yearling Coho Salmon
-# Figure out what years have any catch of this taxon
-coho %>% 
-  group_by(year) %>% 
-  summarise(year_total = sum(n_per_km)) %>% 
-  filter(year_total > 0) %>% 
-  arrange(year) -> coho_year_counts
-```
-
-```{r spatial_autocorrelation_coho_moran_I}
-# Calculate Moran's I for each
-moran_I_p_values_coho <- data.frame(year = coho_year_counts$year,
-  p_value = rep(NA, length(coho_year_counts$year)))
-
-for (i in 1:length(coho_year_counts$year)){
-  moran_I_p_values_coho$p_value[i] <- calculate_moranI_one_year(data = coho,
-                         select_year = coho_year_counts$year[i])
-    
-}
-plot(x = moran_I_p_values_coho$year, y = moran_I_p_values_coho$p_value,
-     xlab = "Year", ylab = "Moran's I p-value", main = "Yearling Coho Salmon Moran's I")
-abline(a = 0.05, b = 0, lty = 2, col = "blue")
-```
-
-<br>
-
-
-<br>
-
-```{r spatial_autocorrelation_csyis, fig.show = "hold", out.width = "25%"}
-### Yearling Interior Spring Chinook Salmon
-# Figure out what years have any catch of this taxon
-csyis %>% 
-  group_by(year) %>% 
-  summarise(year_total = sum(n_per_km)) %>% 
-  filter(year_total > 0) %>% 
-  arrange(year) -> csyis_year_counts
-```
-
-```{r spatial_autocorrelation_csyis_moran_I}
-# Calculate Moran's I for each
-moran_I_p_values_csyis <- data.frame(year = csyis_year_counts$year,
-                                    p_value = rep(NA, length(csyis_year_counts$year)))
-
-for (i in 1:length(csyis_year_counts$year)){
-  moran_I_p_values_csyis$p_value[i] <- calculate_moranI_one_year(data = csyis,
-                                                                select_year = csyis_year_counts$year[i])
-  
-}
-plot(x = moran_I_p_values_csyis$year, y = moran_I_p_values_csyis$p_value,
-     xlab = "Year", ylab = "Moran's I p-value", main = "Yearling Interior Spring Chinook Salmon Moran's I")
-abline(a = 0.05, b = 0, lty = 2, col = "blue")
-```
-
-<br>
-
-
-<br>
-
-
-```{r spatial_autocorrelation_csyif, fig.show = "hold", out.width = "25%"}
-### Yearling Interior Fall Chinook Salmon
-# Figure out what years have any catch of this taxon
-csyif %>% 
-  group_by(year) %>% 
-  summarise(year_total = sum(n_per_km)) %>% 
-  filter(year_total > 0) %>% 
-  arrange(year) -> csyif_year_counts
-
-```
-
-```{r spatial_autocorrelation_csyif_moran_I}
-# Calculate Moran's I for each
-moran_I_p_values_csyif <- data.frame(year = csyif_year_counts$year,
-                                    p_value = rep(NA, length(csyif_year_counts$year)))
-
-for (i in 1:length(csyif_year_counts$year)){
-  moran_I_p_values_csyif$p_value[i] <- calculate_moranI_one_year(data = csyif,
-                                                                select_year = csyif_year_counts$year[i])
-  
-}
-plot(x = moran_I_p_values_csyif$year, y = moran_I_p_values_csyif$p_value,
-     xlab = "Year", ylab = "Moran's I p-value", main = "Yearling Interior Fall Chinook Salmon Moran's I")
-abline(a = 0.05, b = 0, lty = 2, col = "blue")
-```
-
-<br>
-
-
-<br>
-
-
-```{r spatial_autocorrelation_water_jellies, fig.show = "hold", out.width = "25%"}
-### Water Jellies
-# Figure out what years have any catch of this taxon
-water_jellies %>% 
-  group_by(year) %>% 
-  summarise(year_total = sum(n_per_km)) %>% 
-  filter(year_total > 0) %>% 
-  arrange(year) -> water_jellies_year_counts
-
-```
-
-```{r spatial_autocorrelation_water_jellies_moran_I}
-# Calculate Moran's I for each
-moran_I_p_values_water_jellies <- data.frame(year = water_jellies_year_counts$year,
-                                    p_value = rep(NA, length(water_jellies_year_counts$year)))
-
-for (i in 1:length(water_jellies_year_counts$year)){
-  moran_I_p_values_water_jellies$p_value[i] <- calculate_moranI_one_year(data = water_jellies,
-                                                                select_year = water_jellies_year_counts$year[i])
-  
-}
-plot(x = moran_I_p_values_water_jellies$year, y = moran_I_p_values_water_jellies$p_value,
-     xlab = "Year", ylab = "Moran's I p-value", main = "Water Jellies Moran's I")
-abline(a = 0.05, b = 0, lty = 2, col = "blue")
-```
-
-Based on the Moran's I results, we see that there is evidence for spatial clustering in some years but not others. There are also notably more years where the Moran's I value is significant for these taxa than there are for the two copepod species examined in the JSOES Bongo exploratory analysis.
 

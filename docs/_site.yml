@@ -27,6 +27,18 @@ navbar:
         href: bongo_exploratory.html   
       - text: "JSOES Trawl"
         href: jsoes_trawl_exploratory.html   
+      - text: "CCES/CPS"
+        href: cces_exploratory.html   
+      - text: "Hake"
+        href: hake_exploratory.html   
+      - text: "PRS/PWCC"
+        href: PRS_PWCC_exploratory.html   
+      - text: "PIT Tag Data"
+        href: pit_exploratory.html
+    - text: "SDMs"
+      menu:  
+      - text: "Model selection process"
+        href: SDM_model_selection.html   
 output:
   html_document:
     theme: flatly

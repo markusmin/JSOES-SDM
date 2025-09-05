@@ -41,11 +41,11 @@ The SWFSC ATM surveys began in 2006. Surveys have occurred either in the spring 
 
 ### Core taxa
 
-- Pacifc Sardine *Sardinops sagax*
+- Pacific Sardine *Sardinops sagax*
 - Northern Anchovy *Engraulis mordax*
-- Pacifc Herring *Clupea pallasii*
-- Pacifc Round Herring *Etrumeus acuminatus*
-- Pacifc Mackerel *Scomber japonicus*
+- Pacific Herring *Clupea pallasii*
+- Pacific Round Herring *Etrumeus acuminatus*
+- Pacific Mackerel *Scomber japonicus*
 - Jack Mackerel *Trachurus symmetricus*
 - Krill (euphausiid spp.)
 

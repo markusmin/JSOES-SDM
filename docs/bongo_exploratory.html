@@ -11,7 +11,7 @@
 
 <meta name="author" content="Markus Min" />
 
-<meta name="date" content="2025-03-05" />
+<meta name="date" content="2025-05-27" />
 
 <title>JSOES Bongo Data Exploratory Analysis</title>
 
@@ -368,6 +368,18 @@ div.tocify {
     <li>
       <a href="jsoes_trawl_exploratory.html">JSOES Trawl</a>
     </li>
+    <li>
+      <a href="cces_exploratory.html">CCES/CPS</a>
+    </li>
+    <li>
+      <a href="hake_exploratory.html">Hake</a>
+    </li>
+    <li>
+      <a href="PRS_PWCC_exploratory.html">PRS/PWCC</a>
+    </li>
+    <li>
+      <a href="pit_exploratory.html">PIT Tag Data</a>
+    </li>
   </ul>
 </li>
       </ul>
@@ -384,7 +396,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">JSOES Bongo Data Exploratory Analysis</h1>
 <h4 class="author">Markus Min</h4>
-<h4 class="date">2025-03-05</h4>
+<h4 class="date">2025-05-27</h4>
 
 </div>
 
@@ -397,6 +409,10 @@ the tow composition is biased towards taxa/life stages that do not
 vertically migrate. While different life stages of some species are
 counted separately for this data, for this exploratory analysis we
 summed abundances across life stages.</p>
+<p>In this document, I will characterize general patterns in this
+dataset, and then visualize some key groups of salmon forage that are
+caught in this survey. This document also contains the scripts to export
+these groups, formatted for inclusion in the model.</p>
 <div id="data-overview" class="section level2">
 <h2>Data Overview</h2>
 <p>We will first explore the most common and most abundant taxa in this
@@ -704,60 +720,57 @@ index of abundance.</p>
 <iframe src="https://markusmin.shinyapps.io/jsoes_bongo_annual_time_series/?showcase=0" width="672" height="700px" data-external="1">
 </iframe>
 </div>
+<div id="exploring-broad-groups-of-taxa" class="section level2">
+<h2>Exploring broad groups of taxa</h2>
+<p>The JSOES bongo data contains data on both the direct prey of Pacific
+salmon as well as the prey items of the prey of Pacific salmon. The
+direct salmon prey that is caught in this survey includes Euphausiids,
+Cancer crab larvae, hyperiid amphipods, and non-cancer crab larvae. The
+abundance of copepods has also been correlated with salmon marine
+survival, and as such we will also examine these taxa.</p>
+<p>Let’s ID everything that’s seen in at least 0.5% of samples. This
+accounts for 118 of 215 total taxa identified in this survey.</p>
+</div>
 <div id="plotting-distributions-of-some-common-taxa"
 class="section level2">
 <h2>Plotting distributions of some common taxa</h2>
-<p>I am currently developing a Shiny app that will allow you to
-visualize the distributions of different taxa. For now, I provide static
-maps of two focal taxa for this survey: <em>Calanus marshallae</em> (an
-abundant cold-water copepod) and <em>Calanus pacificus</em> (an abundant
-warm-water coepod). To demonstrate how we can visualize the abundance of
-these two key copepod species in space and time, we plot their density
-in survey catch below.</p>
+<p>Let’s visualize the following groups for our study, since they are
+known direct prey items of salmon:</p>
+<ul>
+<li>Cancer crab larvae</li>
+<li>Non-cancer crab larvae</li>
+<li>shrimp larvae</li>
+<li>Hyperiid amphipods</li>
+</ul>
+<p>Krill are also consumed by salmon, but we have other surveys that
+provide better estimates of krill abundance.</p>
+<p><img src="bongo_exploratory_files/figure-html/map_groups-1.png" width="672" /><img src="bongo_exploratory_files/figure-html/map_groups-2.png" width="672" /><img src="bongo_exploratory_files/figure-html/map_groups-3.png" width="672" /><img src="bongo_exploratory_files/figure-html/map_groups-4.png" width="672" /></p>
+</div>
+<div id="lower-trophic-levels" class="section level2">
+<h2>Lower trophic levels</h2>
+<p>While we visualize the direct forage of juvenile salmon above, the
+Bongo data also helps us characterize the distributions and abundance of
+taxa that are 2+ trophic levels below salmon (i.e., the prey of salmon
+prey). The literature suggests that the most important of these are
+copepods, as the abundance of cold-water vs. warm-water copepods has
+been linked with marine survival. Below, I provide static maps of two
+focal taxa for this survey: <em>Calanus marshallae</em> (an abundant
+cold-water copepod) and <em>Calanus pacificus</em> (an abundant
+warm-water coepod).</p>
 <p><img src="bongo_exploratory_files/figure-html/map_calanus-1.png" width="672" /><img src="bongo_exploratory_files/figure-html/map_calanus-2.png" width="672" /></p>
-<p><br></p>
 </div>
-<div id="temporal-and-spatial-autocorrelation" class="section level2">
-<h2>Temporal and Spatial Autocorrelation</h2>
-<p>Before fitting any spatiotemporal models, we must explore the spatial
-and temporal autocorrelation in the data.</p>
-<p><br></p>
-<div id="temporal-structure" class="section level3">
-<h3>Temporal structure</h3>
-<p>We can first inspect the autocorrelation in our <em>Calanus
-marshallae</em> and <em>Calanus pacificus</em> mean annual time
-series.</p>
-<p><img src="bongo_exploratory_files/figure-html/coastwide_temporal_autocorrelation-1.png" width="672" /><img src="bongo_exploratory_files/figure-html/coastwide_temporal_autocorrelation-2.png" width="672" /></p>
-<p>At the coastwide scale the <em>Calanus marshallae</em> time series
-does not show temporal autocorrelation, but the <em>Calanus
-pacificus</em> time series does at a lag of one year.</p>
-<p>I also investigated temporal autocorrelation at the scale of
-individual stations, and found little evidence for temporal
-autocorrelation at this scale for these two taxa.</p>
-<p><br></p>
-</div>
-<div id="spatial-structure" class="section level3">
-<h3>Spatial structure</h3>
-<p>To investigate spatial autocorrelation, I calculated a metric known
-as Moran’s I. Moran’s I is a measure of the overall clustering of the
-spatial data and tests if there is support to reject the null hypothesis
-of no spatial structure. Given that we did not see much evidence for
-temporal autocorrelation, I calculated Moran’s I separately for each
-year. To summarize the Moran’s I results, I show the p-value for Moran’s
-I for each year, with the blue dashed line showing a p-value of
-0.05.</p>
-<p>We will first examine spatial autocorrelation in <em>Calanus
-marshallae</em>:</p>
-<p><img src="bongo_exploratory_files/figure-html/spatial_autocorrelation_cama_moran_I-1.png" width="672" /></p>
-<p><br></p>
-<p><br></p>
-<p>We will next examine spatial autocorrelation in <em>Calanus
-pacificus</em>:</p>
-<p><img src="bongo_exploratory_files/figure-html/spatial_autocorrelation_capa_moran_I-1.png" width="672" /></p>
-<p>Based on the Moran’s I results, we see that there is evidence for
-spatial clustering in most years, especially for <em>Calanus
-pacificus</em>.</p>
-</div>
+<div id="export-data" class="section level2">
+<h2>Export data</h2>
+<p>In the last section of this script, we will export the following
+functional groups for inclusion in spatiotemporal models. The data will
+be formatted with the total density of each functional group at each
+station.</p>
+<ul>
+<li>Cancer crab larvae</li>
+<li>Non-cancer crab larvae</li>
+<li>shrimp larvae</li>
+<li>Hyperiid amphipods</li>
+</ul>
 </div>
 
 

@@ -1,0 +1,310 @@
+---
+title: "CCES/CPS Exploratory Analysis"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output:
+  html_document
+---
+This page contains exploratory analysis for the acoustic backscatter data from the [Hake Survey](https://markusmin.github.io/JSOES-SDM/hake_survey_description.html).
+
+## Data Overview
+
+
+## Distribution maps
+
+In this document, I show the acoustic backscatter assigned to hake and krill.
+
+
+```{r chunk-options, message = FALSE, echo = FALSE, warning = FALSE}
+# set chunk options
+knitr::opts_chunk$set(message = FALSE, echo = FALSE, warning = FALSE)
+```
+
+
+```{r load-libraries-reformat-data}
+library(readxl)
+library(here)
+library(janitor)
+library(tidyverse)
+library(kableExtra)
+library(sf)
+library(gstat)
+library(sp)
+library(ggthemes)
+library(ape)
+library(viridis)
+
+# load the hake data
+hake <- read.csv(here::here("Data", "Hake_NASC_WC_1995-2023.csv"))
+
+# load the krill data
+krill <- read.csv(here::here("Data", "Krill_NASC_WC_0.5nmi_2007-2023.csv"))
+
+
+
+
+# make the density binned
+# figure out what our ranges are
+# range(hake$NASC)
+# range(krill$NASC)
+
+# There are some negative values here which is really odd - should reach
+# out to CPS team if we decide to include this data
+
+# Define bins and labels
+breaks <- c(0, 1, 100, 500, 1000, 10000, 1000000)
+labels <- c("0-1", "1-100", "100-500", "500-1000", "1000-10000", "10000+")
+
+hake %>% 
+  mutate(`NASC (m^2 nmi^-2)` = cut(NASC, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) -> hake
+
+krill %>% 
+  mutate(`NASC (m^2 nmi^-2)` = cut(NASC, 
+                                breaks = breaks,
+                                labels = labels,
+                                include.lowest = TRUE,
+                                right = FALSE)) -> krill
+
+
+# hist(krill$NASC)
+```
+
+
+```{r load_spatial_data, cache = TRUE}
+#### Spatial data ####
+usa_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/USA_adm0.shp", quiet = TRUE)
+# load BC
+CAN_spdf <- st_read("/Users/markusmin/Documents/ESA_RF_2021/map_files/canada/lpr_000b16a_e.shp", quiet = TRUE)
+BC_spdf <- filter(CAN_spdf, PRENAME == "British Columbia")
+BC_proj <- st_transform(BC_spdf, crs = 4326)
+
+
+# crop them to our desired area
+US_west_coast <- sf::st_crop(usa_spdf,
+    c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
+
+BC_coast <- sf::st_crop(BC_proj,
+    c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
+
+
+
+# convert both shapefiles to a different projection (UTM zone 10) so that they can be plotted with the sdmTMB output
+UTM_zone_10_crs <- 32610
+
+US_west_coast_proj <- sf::st_transform(US_west_coast, crs = UTM_zone_10_crs)
+BC_coast_proj <- sf::st_transform(BC_coast, crs = UTM_zone_10_crs)
+
+# make this projection into kilometers
+US_west_coast_proj_km <- st_as_sf(US_west_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+BC_coast_proj_km <- st_as_sf(BC_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
+```
+
+```{r create_basemap, cache = TRUE}
+# create base map
+survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
+  geom_sf() +
+  geom_sf(data = BC_coast_proj_km) +
+  # coord_sf(ylim = c(4922.052, 5342.052), xlim = c(334.8638, 404.8638)) +
+  # coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+  # temporary fix for lat/long on axes to just get rid of them - start here to actually fix: https://forum.posit.co/t/converting-axes-to-lat-lon/27181
+
+survey_area_basemap <- ggplot(US_west_coast) +
+  geom_sf() +
+  geom_sf(data = BC_coast) +
+  coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  scale_x_continuous(breaks = c(124,125,126)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+```
+
+```{r plot_distributions, fig.dim = c(20, 12)}
+survey_area_basemap +
+      geom_point(data = hake, aes(x = Lon, y = Lat)) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle("Pacific Hake") +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> hake_samples_plot
+
+hake_samples_plot
+
+
+survey_area_basemap +
+      geom_point(data = hake, aes(x = Lon, y = Lat, size = `NASC (m^2 nmi^-2)`, color = `NASC (m^2 nmi^-2)`),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("gray", viridis(5))) +
+    facet_wrap(~year, nrow = 2) +
+    ggtitle("Pacific Hake") +
+  scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> hake_distribution_plot
+
+hake_distribution_plot
+
+survey_area_basemap +
+      geom_point(data = krill, aes(x = Lon, y = Lat, size = `NASC (m^2 nmi^-2)`, color = `NASC (m^2 nmi^-2)`),
+                 alpha = 0.5) +
+    scale_color_manual(values = c("gray", viridis(5))) +
+    facet_wrap(~Year, nrow = 2) +
+    ggtitle("Krill") +
+  scale_size_manual(values = c(0.4, 2, 4, 6, 8, 10)) +
+  guides(colour = guide_legend(), size = guide_legend()) +
+    theme(legend.key.height = unit(1, "cm"),
+        legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        legend.position = "right",
+        legend.spacing.y = unit(0.05, 'cm'),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        plot.title = element_text(size = 24)) -> krill_distribution_plot
+
+krill_distribution_plot
+```
+
+```{r transform_hake}
+# use krill data to fill in gaps for hake from 2007-present
+ggplot(subset(krill, Year == 2023), aes(x = Lon, y = Lat)) +
+  geom_point(color = "blue") +
+  geom_point(data = subset(hake, year == 2023), aes(x = Lon, y = Lat), color = "red")
+
+krill %>% 
+  filter(Year == 2023) %>% 
+  dplyr::select(Lat, Lon) %>% 
+  left_join(subset(hake, year == 2023), by = c("Lon", "Lat"))
+
+# Find the closest point in the krill data for the hake data
+st_as_sf(hake, coords = c("Lon", "Lat"), crs = 4326) -> hake_sf
+st_as_sf(krill, coords = c("Lon", "Lat"), crs = 4326) -> krill_sf
+
+# Find the index of the closest point in krill to each hake positive catch, within each year
+hake_sf_2023 <- subset(hake_sf, year == 2023)
+hake_sf_2021 <- subset(hake_sf, year == 2021)
+hake_sf_2019 <- subset(hake_sf, year == 2019)
+hake_sf_2017 <- subset(hake_sf, year == 2017)
+hake_sf_2015 <- subset(hake_sf, year == 2015)
+hake_sf_2013 <- subset(hake_sf, year == 2013)
+hake_sf_2012 <- subset(hake_sf, year == 2012)
+hake_sf_2011 <- subset(hake_sf, year == 2011)
+hake_sf_2009 <- subset(hake_sf, year == 2009)
+hake_sf_2007 <- subset(hake_sf, year == 2007)
+
+krill_sf_2023 <- subset(krill_sf, Year == 2023)
+krill_sf_2021 <- subset(krill_sf, Year == 2021)
+krill_sf_2019 <- subset(krill_sf, Year == 2019)
+krill_sf_2017 <- subset(krill_sf, Year == 2017)
+krill_sf_2015 <- subset(krill_sf, Year == 2015)
+krill_sf_2013 <- subset(krill_sf, Year == 2013)
+krill_sf_2012 <- subset(krill_sf, Year == 2012)
+krill_sf_2011 <- subset(krill_sf, Year == 2011)
+krill_sf_2009 <- subset(krill_sf, Year == 2009)
+krill_sf_2007 <- subset(krill_sf, Year == 2007)
+
+match_hake_krill_samples <- function(hake_data, krill_data){
+  # find nearest krill sample for each hake sample
+  krill_hake_matches <- st_nearest_feature(hake_data, krill_data)
+  
+  # add this as a field to the hake data
+  hake_data$krill_geometry <- krill_data$geometry[krill_hake_matches]
+  # set the new krill_geometry as the active geometry column, rename it as the geometry field, drop the other one
+  st_geometry(hake_data) <- "krill_geometry"
+  hake_data %>% 
+    dplyr::select(-c(geometry, year)) %>% 
+    dplyr::rename(geometry = krill_geometry) -> hake_data
+  
+  # add the hake data to the krill samples data
+  krill_data %>% 
+    dplyr::select(ID, Transect, Interval, Year, Survey, Date, DepthBin, geometry) %>% 
+    st_join(hake_data) -> hake_data_updated_geom
+  
+  # replace NAs with zeros
+  hake_data_updated_geom$NASC[is.na(hake_data_updated_geom$NASC)] <- 0
+  
+  # convert it back to a data frame
+  hake_data_updated_geom %>% 
+    st_drop_geometry() -> hake_for_export
+  
+  hake_for_export %>% 
+    bind_cols(st_coordinates(hake_data_updated_geom)) %>% 
+    dplyr::rename(lat = Y, lon = X) -> hake_for_export
+  
+  return(hake_for_export)
+}
+
+match_hake_krill_samples(hake_data = hake_sf_2023, krill_data = krill_sf_2023) -> hake_2023_updated
+match_hake_krill_samples(hake_data = hake_sf_2021, krill_data = krill_sf_2021) -> hake_2021_updated
+match_hake_krill_samples(hake_data = hake_sf_2019, krill_data = krill_sf_2019) -> hake_2019_updated
+match_hake_krill_samples(hake_data = hake_sf_2017, krill_data = krill_sf_2017) -> hake_2017_updated
+match_hake_krill_samples(hake_data = hake_sf_2015, krill_data = krill_sf_2015) -> hake_2015_updated
+match_hake_krill_samples(hake_data = hake_sf_2013, krill_data = krill_sf_2013) -> hake_2013_updated
+match_hake_krill_samples(hake_data = hake_sf_2012, krill_data = krill_sf_2012) -> hake_2012_updated
+match_hake_krill_samples(hake_data = hake_sf_2011, krill_data = krill_sf_2011) -> hake_2011_updated
+match_hake_krill_samples(hake_data = hake_sf_2009, krill_data = krill_sf_2009) -> hake_2009_updated
+match_hake_krill_samples(hake_data = hake_sf_2007, krill_data = krill_sf_2007) -> hake_2007_updated
+
+
+hake_2007_updated %>% 
+  bind_rows(hake_2009_updated) %>% 
+  bind_rows(hake_2011_updated) %>% 
+  bind_rows(hake_2012_updated) %>% 
+  bind_rows(hake_2013_updated) %>% 
+  bind_rows(hake_2015_updated) %>% 
+  bind_rows(hake_2017_updated) %>% 
+  bind_rows(hake_2019_updated) %>% 
+  bind_rows(hake_2021_updated) %>% 
+  bind_rows(hake_2023_updated) %>% 
+  dplyr::select(-"NASC (m^2 nmi^-2")-> hake_updated
+
+
+
+
+```
+
+```{r export_data}
+write.csv(krill, here::here("model_inputs", "ATM_hake_krill.csv"), row.names = FALSE)
+
+write.csv(hake_updated, here::here("model_inputs", "ATM_hake.csv"), row.names = FALSE)
+```
+
