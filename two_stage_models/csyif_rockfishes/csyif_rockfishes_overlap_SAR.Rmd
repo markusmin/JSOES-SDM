@@ -1,0 +1,337 @@
+---
+title: "csyif_rockfishes_overlap_SAR"
+author: "Markus Min"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r chunk-options, message = FALSE, echo = FALSE, warning = FALSE}
+# set chunk options
+knitr::opts_chunk$set(message = FALSE, echo = FALSE, warning = FALSE)
+```
+
+
+```{r load_libraries_source_scripts, include = FALSE}
+library(tidyverse)
+library(here)
+library(TMB)
+library(ggforce)
+library(sdmTMB)
+library(kableExtra)
+# knitr::opts_chunk()
+
+# source the function scripts
+source("R/functions/cAIC.R")
+source("R/functions/rmvnorm_prec.R")
+source("R/functions/sample_var.R")
+source("R/functions/plot_anisotropy_MM.R")
+source("R/functions/make_anisotropy_spde.R")
+source("R/functions/H_matrix_prior_predictive_check_for_ggplot.R")
+source("R/functions/plot_distribution_PRS_PWCC.R")
+source("R/functions/generate_prediction_maps.R")
+source("R/functions/generate_prediction_maps_PRS_PWCC.R")
+
+source("two_stage_models/SDM_stage1/best_fit_SDMs/csyif_fit_SDM.R")
+source("two_stage_models/SDM_stage1/best_fit_SDMs/rockfishes_fit_SDM.R")
+```
+
+#### Description
+
+This document will explore if spatiotemporal overlap between rockfishes and Yearling Interior Fall Chinook predicts marine survival of Yearling Interior Fall Chinook.
+
+Four models will be fit to explore this question, based on two binary choices:
+
+1. Is overlap assumed to be observed without error, or with error?
+2. Is the area of interest the full JSOES survey domain, or only the area of the survey that is shared with the PRS survey?
+
+
+
+## Visualize SDM outputs independently
+
+First, we will examine the outputs from the SDMs fit to both Yearling Interior Fall Chinook and rockfishes (*Sebastes spp.*).
+
+```{r visualize_SDM_outputs}
+### Visualize outputs for CSYIF
+dyn.load(dynlib(here::here("two_stage_models", "SDM_stage1", "jsoes_trawl", "csyif", "csyif_model4_v1")))
+
+load(file = here::here("two_stage_models", "SDM_stage1", "jsoes_trawl", "csyif", "csyif_model4_v1_output.rda"))
+csyif_model4_v1_Obj <- csyif_model4_v1_output$csyif_model4_v1_Obj
+csyif_model4_v1_report <- csyif_model4_v1_output$csyif_model4_v1_report
+csyif_model4_v1_Opt <- csyif_model4_v1_output$csyif_model4_v1_Opt
+
+
+csyif_prediction_maps <- generate_prediction_maps(report = csyif_model4_v1_report, 
+                         obj = csyif_model4_v1_Obj, 
+                         opt = csyif_model4_v1_Opt,
+                         model_name = "csyif_model4")
+
+csyif_prediction_maps
+
+
+### Visualize outputs for rockfishes
+dyn.load(dynlib(here::here("two_stage_models", "SDM_stage1", "candidate_models", "SDM_model4")))
+
+rockfishes_prediction_maps <- generate_prediction_maps(report = SDM_model4_report, 
+                         obj = SDM_model4_Obj, 
+                         opt = SDM_model4_Opt,
+                         model_name = "sebastes_model4")
+
+rockfishes_prediction_maps
+
+```
+
+
+
+
+# Fit SAR model
+
+```{r load_SAR_data}
+SAR_data <- read.csv(here::here("model_inputs", "chinook_det_hist.csv"))
+# subset the SAR data only include the outmigration years shared by the surveys
+SAR_data <- subset(SAR_data, run_year %in% unique(rf$year))
+# extract Snake River Fall Chinook from SAR data
+SRF <- subset(SAR_data, run_name == "Fall" & group == "Snake River")
+```
+
+
+
+# Stage 1: Fit combined SDM, calculate overlap
+
+
+## v1: The whole JSOES domain
+```{r}
+# ensure that projection matrix for rockfishes is the same as for csyif
+# create projection matrix from vertices to prediction grid
+# survey_domain_cov_grid is the grid used for JSOES trawl
+survey_area_basemap_km +
+  geom_sf(data = survey_domain_cov_grid)
+
+A_gs_rf = fm_evaluator( inla_mesh_cutoff15_jsoes_domain, loc=st_coordinates(survey_domain_cov_grid))$proj$A
+
+# subset csyif to only be the years that are in PRS_PWCC survey
+csyif_subset <- subset(csyif, year %in% unique(rf$year))
+
+
+compile(here::here("two_stage_models", "csyif_rockfishes", "stage1_models", "csyif_rockfishes_overlap_model_1.cpp"))
+dyn.load(dynlib(here::here("two_stage_models", "csyif_rockfishes", "stage1_models", "csyif_rockfishes_overlap_model_1")))
+
+csyif_rockfishes_overlap_model_1_jsoes_domain_Data = list(
+  ## Shared data
+  # number of years
+  "n_t" = length(unique(rf$year)),
+  
+  ## csyif data
+  "weights_i_csyif" = rep(1, length(csyif$n_per_km)), # weights (all 1)
+  "D_i_csyif"= csyif_subset$n_per_km, "t_i_csyif" = as.integer(dplyr::dense_rank(csyif_subset$year - min(csyif_subset$year))-1),
+  "A_is_csyif"=A_is_csyif, "A_gs_csyif"=A_gs_csyif, # "M0_b"=trawl_spde$c0, "M1_b"=trawl_spde$g1, "M2_b"=trawl_spde$g2,
+  "spatial_list_csyif" = spatial_list_csyif,
+  
+  ## rf data
+  "weights_i_rf" = rep(1, length(rf$total)), # weights (all 1)
+  "D_i_rf"= rf$total,
+  # note that there are missing years of data - so this just represents the order of years (but there are gaps!)
+  "t_i_rf" = as.integer(dplyr::dense_rank(rf$year - min(rf$year))-1),
+  "A_is_rf"=A_is_rf, "A_gs_rf"=A_gs_rf,
+  "spatial_list_rf" = spatial_list_rf
+)
+
+
+csyif_rockfishes_overlap_model_1_Params <- list(
+  
+  ## csyif fixed effects
+  "beta_t_csyif"=rep(0, length(unique(rf$year))),
+  "ln_tau_omega_csyif"=0,  "ln_tau_epsilon_csyif"=0,
+  "ln_kappa_csyif"=0, "ln_phi_csyif" = 0,
+  "ln_H_input_csyif" = c(0, 0),
+  "finv_power_csyif" = 0,
+  
+  # csyif random effects
+  "omega_s_csyif"=rnorm(nrow(trawl_spde$c0)),
+  "epsilon_st_csyif"=matrix(0, nrow=nrow(trawl_spde$c0), ncol=csyif_rockfishes_overlap_model_1_jsoes_domain_Data$n_t),
+  
+  ## csyif fixed effects
+  "beta_t_rf"=rep(0, length(unique(rf$year))),
+  "ln_tau_omega_rf"=0,  "ln_tau_epsilon_rf"=0,
+  "ln_kappa_rf"=0, "ln_phi_rf" = 0,
+  "ln_H_input_rf" = c(0, 0),
+  "finv_power_rf" = 0,
+  
+  # csyif random effects
+  "omega_s_rf"=rnorm(nrow(PRS_PWCC_spde$c0)),
+  "epsilon_st_rf"=matrix(0, nrow=nrow(PRS_PWCC_spde$c0), ncol=csyif_rockfishes_overlap_model_1_jsoes_domain_Data$n_t)
+  
+  
+)
+
+csyif_rockfishes_overlap_model_1_jsoes_domain_Obj = MakeADFun( data=csyif_rockfishes_overlap_model_1_jsoes_domain_Data,
+                                                parameters=csyif_rockfishes_overlap_model_1_Params,
+                                                random= c("omega_s_csyif", "epsilon_st_csyif",
+                                                          "omega_s_rf", "epsilon_st_rf"),
+                                                DLL = "csyif_rockfishes_overlap_model_1")
+
+# Optimize
+csyif_rockfishes_overlap_model_1_jsoes_domain_Opt = nlminb( start=csyif_rockfishes_overlap_model_1_jsoes_domain_Obj$par, obj=csyif_rockfishes_overlap_model_1_jsoes_domain_Obj$fn, grad=csyif_rockfishes_overlap_model_1_jsoes_domain_Obj$gr )
+# add getJointPrecision for index
+csyif_rockfishes_overlap_model_1_jsoes_domain_Opt$SD = sdreport( csyif_rockfishes_overlap_model_1_jsoes_domain_Obj, bias.correct=TRUE, getJointPrecision = TRUE )
+csyif_rockfishes_overlap_model_1_jsoes_domain_report = csyif_rockfishes_overlap_model_1_jsoes_domain_Obj$report()
+
+csyif_rockfishes_overlap_model_1_jsoes_domain_output <- list(csyif_rockfishes_overlap_model_1_jsoes_domain_Obj = csyif_rockfishes_overlap_model_1_jsoes_domain_Obj,
+                                              csyif_rockfishes_overlap_model_1_jsoes_domain_Opt = csyif_rockfishes_overlap_model_1_jsoes_domain_Opt,
+                                              csyif_rockfishes_overlap_model_1_jsoes_domain_report = csyif_rockfishes_overlap_model_1_jsoes_domain_report)
+
+save(csyif_rockfishes_overlap_model_1_jsoes_domain_output,
+     file = here::here("two_stage_models", "csyif_rockfishes", "stage1_models", "csyif_rockfishes_overlap_model_1_jsoes_domain_output.rda"))
+```
+
+
+### Visualize overlap
+```{r}
+SE_ov_rf_csyif_t_jsoes_domain = sample_var( obj=csyif_rockfishes_overlap_model_1_jsoes_domain_Obj, var_name="ov_rf_csyif_t", mu=csyif_rockfishes_overlap_model_1_jsoes_domain_Obj$env$last.par.best, prec=csyif_rockfishes_overlap_model_1_jsoes_domain_Opt$SD$jointPrecision )
+
+overlap_jsoes_domain <- data.frame(year = sort(unique(rf$year)),
+                      estimate = csyif_rockfishes_overlap_model_1_jsoes_domain_report$ov_rf_csyif_t,
+                      SE = SE_ov_rf_csyif_t)
+
+ggplot(overlap_jsoes_domain, aes(x = year, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymax = estimate + SE, ymin = estimate - SE))
+
+range(csyif_rockfishes_overlap_model_1_jsoes_domain_Opt$SD$cov)
+sqrt(diag(csyif_rockfishes_overlap_model_1_jsoes_domain_Opt$SD$cov))
+
+plot(x = SE_ov_rf_csyif_t_jsoes_domain, y = sqrt(diag(csyif_rockfishes_overlap_model_1_jsoes_domain_Opt$SD$cov)))
+
+```
+
+## v2: only the overlap between the JSOES and PRS survey domains
+
+```{r}
+# get the maximum value from the PRS grid
+max_Y_PRS <- max(subset(rf, year == 2016)$Y)
+# get the minimum value from the jsoes grid
+min_Y_jsoes <- min(subset(csyif)$Y)
+
+survey_domain_PRS_JSOES_intersection_cov_grid <- st_crop(survey_domain_PRS_cov_grid, 
+                                                         xmin = 0, xmax = 100000, 
+                                                         ymin=min_Y_jsoes-10, ymax=max_Y_PRS+10)
+
+survey_area_basemap_km +
+  geom_sf(data = survey_domain_PRS_JSOES_intersection_cov_grid)
+
+# ensure that projection matrix for rockfishes is the same as for csyif
+# create projection matrix from vertices to prediction grid
+# here, use the trimmed area to only the PRS domain to construct projection matrices for both csyif and rf
+A_gs_rf = fm_evaluator( inla_mesh_cutoff15_jsoes_domain, loc=st_coordinates(survey_domain_PRS_JSOES_intersection_cov_grid))$proj$A
+A_gs_csyif = fm_evaluator( inla_mesh_cutoff15, loc=st_coordinates(survey_domain_PRS_JSOES_intersection_cov_grid))$proj$A
+
+# subset csyif to only be the years that are in PRS_PWCC survey
+csyif_subset <- subset(csyif, year %in% unique(rf$year))
+
+
+compile(here::here("two_stage_models", "csyif_rockfishes", "stage1_models", "csyif_rockfishes_overlap_model_1.cpp"))
+dyn.load(dynlib(here::here("two_stage_models", "csyif_rockfishes", "stage1_models", "csyif_rockfishes_overlap_model_1")))
+
+csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Data = list(
+  ## Shared data
+  # number of years
+  "n_t" = length(unique(rf$year)),
+  
+  ## csyif data
+  "weights_i_csyif" = rep(1, length(csyif$n_per_km)), # weights (all 1)
+  "D_i_csyif"= csyif_subset$n_per_km, "t_i_csyif" = as.integer(dplyr::dense_rank(csyif_subset$year - min(csyif_subset$year))-1),
+  "A_is_csyif"=A_is_csyif, "A_gs_csyif"=A_gs_csyif, # "M0_b"=trawl_spde$c0, "M1_b"=trawl_spde$g1, "M2_b"=trawl_spde$g2,
+  "spatial_list_csyif" = spatial_list_csyif,
+  
+  ## rf data
+  "weights_i_rf" = rep(1, length(rf$total)), # weights (all 1)
+  "D_i_rf"= rf$total,
+  # note that there are missing years of data - so this just represents the order of years (but there are gaps!)
+  "t_i_rf" = as.integer(dplyr::dense_rank(rf$year - min(rf$year))-1),
+  "A_is_rf"=A_is_rf, "A_gs_rf"=A_gs_rf,
+  "spatial_list_rf" = spatial_list_rf
+)
+
+
+csyif_rockfishes_overlap_model_1_Params <- list(
+  
+  ## csyif fixed effects
+  "beta_t_csyif"=rep(0, length(unique(rf$year))),
+  "ln_tau_omega_csyif"=0,  "ln_tau_epsilon_csyif"=0,
+  "ln_kappa_csyif"=0, "ln_phi_csyif" = 0,
+  "ln_H_input_csyif" = c(0, 0),
+  "finv_power_csyif" = 0,
+  
+  # csyif random effects
+  "omega_s_csyif"=rnorm(nrow(trawl_spde$c0)),
+  "epsilon_st_csyif"=matrix(0, nrow=nrow(trawl_spde$c0), ncol=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Data$n_t),
+  
+  ## csyif fixed effects
+  "beta_t_rf"=rep(0, length(unique(rf$year))),
+  "ln_tau_omega_rf"=0,  "ln_tau_epsilon_rf"=0,
+  "ln_kappa_rf"=0, "ln_phi_rf" = 0,
+  "ln_H_input_rf" = c(0, 0),
+  "finv_power_rf" = 0,
+  
+  # csyif random effects
+  "omega_s_rf"=rnorm(nrow(PRS_PWCC_spde$c0)),
+  "epsilon_st_rf"=matrix(0, nrow=nrow(PRS_PWCC_spde$c0), ncol=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Data$n_t)
+  
+  
+)
+
+csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj = MakeADFun( data=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Data,
+                                                parameters=csyif_rockfishes_overlap_model_1_Params,
+                                                random= c("omega_s_csyif", "epsilon_st_csyif",
+                                                          "omega_s_rf", "epsilon_st_rf"),
+                                                DLL = "csyif_rockfishes_overlap_model_1")
+
+# Optimize
+csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt = nlminb( start=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj$par, obj=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj$fn, grad=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj$gr )
+# add getJointPrecision for index
+csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt$SD = sdreport( csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj, bias.correct=TRUE, getJointPrecision = TRUE )
+csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_report = csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj$report()
+
+csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_output <- list(csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj = csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj,
+                                              csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt = csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt,
+                                              csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_report = csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_report)
+
+save(csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_output,
+     file = here::here("two_stage_models", "csyif_rockfishes", "stage1_models", "csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_output.rda"))
+```
+
+
+### Visualize overlap
+```{r}
+SE_ov_rf_csyif_t_jsoes_PRS_domain_overlap = sample_var( obj=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj, var_name="ov_rf_csyif_t", mu=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Obj$env$last.par.best, prec=csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt$SD$jointPrecision )
+
+overlap_jsoes_PRS_domain_overlap <- data.frame(year = sort(unique(rf$year)),
+                      estimate = csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_report$ov_rf_csyif_t,
+                      SE = SE_ov_rf_csyif_t)
+
+ggplot(overlap_jsoes_PRS_domain_overlap, aes(x = year, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymax = estimate + SE, ymin = estimate - SE))
+
+range(csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt$SD$cov)
+sqrt(diag(csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt$SD$cov))
+
+plot(x = SE_ov_rf_csyif_t_jsoes_PRS_domain_overlap, y = sqrt(diag(csyif_rockfishes_overlap_model_1_jsoes_PRS_domain_overlap_Opt$SD$cov)))
+
+```
+
+
+# Stage 2: Fit SAR
+
+
+
+
+
+
+
+
+
+
+
+
+
+
