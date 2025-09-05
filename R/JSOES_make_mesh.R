@@ -146,6 +146,22 @@ BC_coast_proj_km <- st_as_sf(BC_coast_proj$geometry/1000, crs = UTM_zone_10_crs)
 
 
 #### create base map for visualizing data
+survey_area_basemap <- ggplot(US_west_coast) +
+  geom_sf() +
+  geom_sf(data = BC_coast) +
+  coord_sf(ylim = c(44,48.5),  xlim = c(-126, -123)) +
+  scale_x_continuous(breaks = c(124,125,126)) +
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = c(0.14, 0.2),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+
 survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
   geom_sf() +
   geom_sf(data = BC_coast_proj_km) + 
@@ -271,6 +287,78 @@ jsoes_long %>%
   mutate(SST_scaled = as.numeric(scale(remote_SST)),
          dist_shore_scaled = as.numeric(scale(sf_dist_shore))) -> jsoes_long
 
+#### Load salinity data and match to the samples and the prediction grid
+
+# take the output from the SST code above as input here
+st_as_sf(jsoes_long, coords = c("X", "Y"), crs = UTM_zone_10_crs) -> jsoes_long_sf
+jsoes_long_sf_split <- split(jsoes_long_sf, jsoes_long_sf$year)
+
+jsoes_sos <- read.csv(here::here("model_inputs", "MOM6_sos_june_survey_domain.csv"))
+jsoes_sos <- subset(jsoes_sos, !(is.na(sos)))
+# get rid of NAs (these are on shore)
+# visualize the missing data
+# subset(jsoes_sos, is.na(sos)) -> missing_sos
+# 
+# ggplot(missing_sos, aes(x = lon, y = lat)) +
+#   geom_point() +
+#   facet_wrap(~year)
+
+
+
+# reformat longitude data
+jsoes_sos$lon <- jsoes_sos$lon - 360
+
+# Convert salinity to sf and then to UTM zone 10
+st_as_sf(jsoes_sos, coords = c("lon", "lat"), crs = 4326) -> jsoes_sos_sf
+sf::st_transform(jsoes_sos_sf, crs = UTM_zone_10_crs) -> jsoes_sos_sf_proj
+
+# convert to km
+jsoes_sos_sf_proj_km <- jsoes_sos_sf_proj
+jsoes_sos_sf_proj_km$geometry <- jsoes_sos_sf_proj$geometry/1000
+
+jsoes_sos_sf_proj_km <- st_set_crs(jsoes_sos_sf_proj_km, UTM_zone_10_crs)
+
+# visualize the data
+ggplot(jsoes_sos_sf_proj_km, aes(color = sos)) + 
+  geom_sf() +
+  facet_wrap(~year)
+
+jsoes_sos_sf_proj_km_split <- split(jsoes_sos_sf_proj_km, jsoes_sos_sf_proj_km$year) 
+
+# Find the nearest salinity measurement for each JSOES sample
+jsoes_long_remote_sos_list <- map(jsoes_years, function(year) {
+  jsoes_one_year <- jsoes_long_sf_split[[year]]
+  sos_one_year <- jsoes_sos_sf_proj_km_split[[year]]
+  
+  # Find nearest features
+  sos_index_for_jsoes <- st_nearest_feature(jsoes_one_year, sos_one_year)
+  
+  # Combine with matched points (optional: include matched geometry or attributes)
+  jsoes_one_year %>%
+    mutate(matched_id = sos_index_for_jsoes) %>%
+    bind_cols(
+      st_drop_geometry(sos_one_year[sos_index_for_jsoes, "sos"]) %>%
+        dplyr::rename(remote_sos = sos)
+    ) %>% 
+    dplyr::select(-matched_id) -> output
+  
+  # transform this to a df
+  st_drop_geometry(output) %>% 
+    bind_cols(st_coordinates(output)) -> output
+  
+  return(output)
+})
+
+# take the list and turn it back into an sf object
+jsoes_long <- list_rbind(jsoes_long_remote_sos_list)
+
+# compare remote salinity with in situ salinity
+
+ggplot(data = jsoes_long, aes(x = x3m_sal, y = remote_sos)) +
+         geom_point()
+cor(subset(jsoes_long, !(is.na(x3m_sal)))$x3m_sal, subset(jsoes_long, !(is.na(x3m_sal)))$remote_sos)
+# it's okay but not great
+
 
 #### Create a survey prediction grid ####
 # Create a survey grid from scratch, using SST data
@@ -373,6 +461,43 @@ survey_area_basemap_km +
 SST_survey_domain %>% 
   mutate(sf_dist_shore = as.numeric(st_distance(geometry, US_west_coast_proj_km))) -> survey_domain_cov
 
+# split by year
+# take the output from the SST code above as input here
+survey_domain_cov_split <- split(survey_domain_cov, survey_domain_cov$year)
+
+
+# add in salinity, by grabbing the closest measurement from the MOM6 hindcast
+# Find the nearest salinity measurement for each cell in the prediction grid
+survey_domain_cov_remote_sos_list <- map(jsoes_years, function(year) {
+  survey_domain_cov_one_year <- survey_domain_cov_split[[year]]
+  sos_one_year <- jsoes_sos_sf_proj_km_split[[year]]
+  
+  # Find nearest features
+  sos_index_for_survey_domain_cov <- st_nearest_feature(survey_domain_cov_one_year, sos_one_year)
+  
+  # Combine with matched points (optional: include matched geometry or attributes)
+  survey_domain_cov_one_year %>%
+    mutate(matched_id = sos_index_for_survey_domain_cov) %>%
+    bind_cols(
+      st_drop_geometry(sos_one_year[sos_index_for_survey_domain_cov, "sos"]) %>%
+        dplyr::rename(remote_sos = sos)
+    ) %>% 
+    dplyr::select(-matched_id) -> output
+  
+  # transform this to a df
+  st_drop_geometry(output) %>% 
+    bind_cols(st_coordinates(output)) -> output
+  
+  return(output)
+})
+
+# take the list and turn it back into an sf object
+survey_domain_cov <- list_rbind(survey_domain_cov_remote_sos_list)
+
+survey_domain_cov <- st_as_sf(survey_domain_cov, coords = c("X", "Y"), crs = UTM_zone_10_crs)
+
+
+
 # because the survey_domain_polygon is constructed from a concave hull, some of the borders
 # are a little coarse - and as a result some of the super nearshore data snuck back it.
 # filter it out
@@ -392,12 +517,14 @@ as.data.frame(st_coordinates(survey_domain_cov)) -> survey_domain_cov_coords
 survey_predict_grid <- data.frame(X = survey_domain_cov_coords$X,
                                   Y = survey_domain_cov_coords$Y,
                                   SST = survey_domain_cov$SST,
+                                  sal = survey_domain_cov$remote_sos,
                                   year = survey_domain_cov$year,
                                   dist_shore = as.numeric(survey_domain_cov$sf_dist_shore))
 
 # rescale prediction grid
 survey_predict_grid %>% 
   mutate(SST_scaled = as.numeric(scale(SST)),
+         sal_scaled = as.numeric(scale(sal)),
          dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid
 
 # Ok - now we are finally ready to create our mesh!
@@ -417,7 +544,7 @@ jsoes_long %>%
 # first extract the grid for the projection area
 # the grid dimensions are the same each year, so just select one year and drop fields besides geometry
 survey_domain_cov %>% 
-  filter(year == 1998) %>% 
+  filter(year == 2000) %>% 
   dplyr::select(geometry) -> survey_domain_cov_grid
 
 # extract only coordinates
@@ -464,6 +591,17 @@ inla_mesh_cutoff15 <- fmesher::fm_mesh_2d_inla(
   boundary = bnd
 )
 
+# make the same mesh using sdmTMB for compatibility with sdmTMB() function
+inla_mesh_cutoff15_sdmTMB <- make_mesh(
+  data = jsoes_all_points,
+  xy_cols = c("X", "Y"),
+  cutoff = 15,
+  boundary = bnd
+)
+# confirm that they are the same
+plot(inla_mesh_cutoff15_sdmTMB)
+plot(inla_mesh_cutoff15)
+
 png(here::here("two_stage_models", "figures", "trawl_boundary_mesh_cutoff15.png"), width=4, height=6, res=200, units="in")
 plot(inla_mesh_cutoff15)
 points(x = jsoes_samples$X, y = jsoes_samples$Y, cex = 0.3)
@@ -506,7 +644,7 @@ bongo %>%
 # first extract the grid for the projection area
 # the grid dimensions are the same each year, so just select one year and drop fields besides geometry
 survey_domain_cov %>% 
-  filter(year == 1998) %>% 
+  filter(year == 2000) %>% 
   dplyr::select(geometry) -> survey_domain_cov_grid
 
 # extract only coordinates
@@ -590,11 +728,11 @@ dev.off()
 #### Visualize alignment between mesh and projection grid ####
 
 # transform mesh to sf
-fm_as_sfc(inla_mesh_cutoff10) %>% 
-   st_set_crs(st_crs(survey_domain_cov_grid)) -> inla_mesh_cutoff10_sf
+fm_as_sfc(inla_mesh_cutoff15) %>% 
+   st_set_crs(st_crs(survey_domain_cov_grid)) -> inla_mesh_cutoff15_sf
 
 mesh_plus_points_plot <- survey_area_basemap_km +
-  geom_sf(data = inla_mesh_cutoff10_sf, fill = NA) +
+  geom_sf(data = inla_mesh_cutoff15_sf, fill = NA) +
   geom_sf(data = survey_domain_cov_grid) +
   geom_point(data = jsoes_samples, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
 
