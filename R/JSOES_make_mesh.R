@@ -34,6 +34,11 @@ library(fmesher)
 #### Data 1: load and reformat trawl data ####
 jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.15.25_FINAL.xlsx")))
 
+# compare May and June temporal coverage
+table(subset(jsoes, month == "May")$year)
+table(subset(jsoes, month == "June")$year)
+# only 2013, 2014, and 2020 are missing for May
+
 # Keep only June data
 jsoes <- filter(jsoes, month == "June")
 
@@ -599,8 +604,8 @@ inla_mesh_cutoff15_sdmTMB <- make_mesh(
   boundary = bnd
 )
 # confirm that they are the same
-plot(inla_mesh_cutoff15_sdmTMB)
-plot(inla_mesh_cutoff15)
+# plot(inla_mesh_cutoff15_sdmTMB)
+# plot(inla_mesh_cutoff15)
 
 png(here::here("two_stage_models", "figures", "trawl_boundary_mesh_cutoff15.png"), width=4, height=6, res=200, units="in")
 plot(inla_mesh_cutoff15)
@@ -737,4 +742,44 @@ mesh_plus_points_plot <- survey_area_basemap_km +
   geom_point(data = jsoes_samples, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
 
 ggsave(here::here("two_stage_models", "figures", "mesh_plus_points_plot.png"), mesh_plus_points_plot,  height = 10, width = 6)
+
+# build this up sequentially for presentation
+
+# just the survey basemap
+survey_map_pres  <- survey_area_basemap_km +
+  geom_sf(data = inla_mesh_cutoff15_sf, fill = NA, color = NA)
+
+ggsave(here::here("figures", "presentation_figures", "survey_area_basemap_km.png"), survey_map_pres,  height = 10, width = 6)
+
+# survey area and samples
+survey_samples_map <- survey_area_basemap_km +
+  geom_sf(data = inla_mesh_cutoff15_sf, fill = NA, color = NA) +
+  geom_point(data = jsoes_samples, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
+
+ggsave(here::here("figures", "presentation_figures", "survey_samples_map.png"), survey_samples_map,  height = 10, width = 6)
+
+# survey area and mesh and samples
+survey_samples_mesh_map <- survey_area_basemap_km +
+  geom_sf(data = inla_mesh_cutoff15_sf, fill = NA) +
+  # geom_sf(data = survey_domain_cov_grid) +
+  geom_point(data = jsoes_samples, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
+
+ggsave(here::here("figures", "presentation_figures", "survey_samples_mesh_map.png"), survey_samples_mesh_map,  height = 10, width = 6)
+
+
+# projection grid
+projection_grid_map <- survey_area_basemap_km +
+  geom_sf(data = inla_mesh_cutoff15_sf, fill = NA) +
+  geom_sf(data = survey_domain_cov_grid, size = 1) +
+  geom_point(data = jsoes_samples, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
+
+ggsave(here::here("figures", "presentation_figures", "projection_grid_map.png"), projection_grid_map,  height = 10, width = 6)
+
+
+
+
+
+
+
+
 
