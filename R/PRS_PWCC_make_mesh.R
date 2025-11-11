@@ -83,7 +83,12 @@ BC_proj <- st_transform(BC_spdf, crs = 4326)
 
 # crop them to our desired area
 US_west_coast <- sf::st_crop(usa_spdf,
-                             c(xmin = -126, ymin = 40.42, xmax = -120, ymax = 48.5))
+                             # c(xmin = -126, ymin = 40.42, xmax = -120, ymax = 48.5))
+# c(xmin = -126, ymin = 39.42, xmax = -120, ymax = 48.5))
+c(xmin = -126, ymin = 39.42, xmax = -123, ymax = 48.5))
+
+# US_west_coast <- sf::st_crop(usa_spdf,
+#                              c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
 
 BC_coast <- sf::st_crop(BC_proj,
                         c(xmin = -126, ymin = 44, xmax = -123, ymax = 48.5))
@@ -267,9 +272,6 @@ SST_sf_proj_km_2000$dist_shore <- as.numeric(st_distance(SST_sf_proj_km_2000, US
 survey_area_basemap_km +
   geom_point(data = rf, aes(x = X, y = Y, color = survey))
 
-# some of these PWCC stations look like they're on land...?
-# yes - these have distance from shore that are 0. So what gives here...?
-
 ggplot(subset(rf, survey == "PRS"), aes(x = X, y = Y)) +
   geom_point() + 
   facet_wrap(~year)
@@ -279,7 +281,7 @@ ggplot(subset(rf, survey == "PRS"), aes(x = X, y = Y)) +
 survey_area_basemap_km +
   geom_point(data = rf, aes(x = X, y = Y, color = as.factor(year)))
 
-# missing 2012 data - I think this was a govt shutdown year?
+# Missing 2010 and 2012 data
 
 # 1) use the JSOES projection grid
 jsoes <- clean_names(read_excel(here::here("Data", "Markus_Min_Trawl_CTD_Chl_Nuts_Thorson_Scheuerell_5.15.25_FINAL.xlsx")))
@@ -362,7 +364,7 @@ SST_sf_proj_km_2000 %>%
   filter(dist_shore <= 65 & dist_shore >= 0.5) -> grid_within_65km_shore
 
 # trim latitudinally
-survey_domain_jsoes <- st_crop(grid_within_65km_shore, xmin = 0, xmax = 100000, ymin=min_Y_PRS-10, ymax=max_Y_jsoes+10)
+survey_domain_jsoes <- st_crop(grid_within_65km_shore, xmin = 0, xmax = 100000, ymin=min_Y_jsoes-10, ymax=max_Y_jsoes+10)
 
 # let's inspect the grid that we created
 ggplot(survey_domain_jsoes) +
@@ -380,7 +382,7 @@ SST_sf_proj_km_2000 %>%
   filter(dist_shore <= 65 & dist_shore >= 0.5) -> grid_within_65km_shore
 
 # trim latitudinally
-survey_domain_PRS <- st_crop(grid_within_65km_shore, xmin = 0, xmax = 100000, ymin=min_Y_PRS-10, ymax=max_Y_PRS+10)
+survey_domain_PRS <- st_crop(grid_within_65km_shore, xmin = 0, xmax = 100000, ymin=min_Y_PRS-10, ymax=max_Y_jsoes+10)
 
 # let's inspect the grid that we created
 ggplot(survey_domain_PRS) +
@@ -388,7 +390,11 @@ ggplot(survey_domain_PRS) +
 
 ### Trim 1 and 2 to manually trim out some of these areas
 
-# manually remove sections for strait, hood canal (and other inland waters), Grays Harbor, Willapa Bay, Columbia River estuary
+# manually remove sections for strait, hood canal (and other inland waters), Grays Harbor, Willapa Bay, Columbia River estuary, Arcata Bay
+arcata_bay <- st_as_sfc(st_bbox(c(xmin=-124.265, xmax=-124.06525, ymin=40.6765, ymax=40.87462), crs = "WGS84"))
+arcata_bay_proj <- sf::st_transform(arcata_bay, crs = UTM_zone_10_crs)
+arcata_bay_proj_km <- st_as_sf(arcata_bay_proj/1000, crs = UTM_zone_10_crs)
+
 strait <- st_as_sfc(st_bbox(c(xmin=-124.65, xmax=-122, ymin=47.9375, ymax=49), crs = "WGS84"))
 strait_proj <- sf::st_transform(strait, crs = UTM_zone_10_crs)
 strait_proj_km <- st_as_sf(strait_proj/1000, crs = UTM_zone_10_crs)
@@ -410,6 +416,7 @@ estuary_proj <- sf::st_transform(estuary, crs = UTM_zone_10_crs)
 estuary_proj_km <- st_as_sf(estuary_proj/1000, crs = UTM_zone_10_crs)
 
 survey_domain_jsoes %>% 
+  st_difference(., arcata_bay_proj_km) %>% 
   st_difference(., strait_proj_km) %>% 
   st_difference(., inland_waters_proj_km) %>% 
   st_difference(., grays_harbor_proj_km) %>% 
@@ -420,6 +427,7 @@ survey_domain_jsoes %>%
 st_concave_hull(st_union(survey_domain_jsoes), ratio = 0.1) -> survey_domain_jsoes_polygon
 
 survey_domain_PRS %>% 
+  st_difference(., arcata_bay_proj_km) %>% 
   st_difference(., strait_proj_km) %>% 
   st_difference(., inland_waters_proj_km) %>% 
   st_difference(., grays_harbor_proj_km) %>% 
@@ -448,33 +456,6 @@ SST_sf_proj %>%
 SST_survey_domain_jsoes %>% 
   mutate(sf_dist_shore = as.numeric(st_distance(geometry, US_west_coast_proj_km))) -> survey_domain_jsoes_cov
 
-# Trim to only the years of data
-survey_domain_jsoes_cov %>% 
-  filter(year %in% unique(rf$year)) -> survey_domain_jsoes_cov
-
-
-# because the survey_domain_jsoes_polygon is constructed from a concave hull, some of the borders
-# are a little coarse - and as a result some of the super nearshore data snuck back it.
-# filter it out
-survey_domain_jsoes_cov %>% 
-  filter(sf_dist_shore >= 0.5) -> survey_domain_jsoes_cov
-
-# plot it - looks good!
-ggplot(survey_domain_jsoes_cov) + geom_sf()
-
-# Now reformat this object to be a data frame that we can use to predict, rather than an sf object
-as.data.frame(st_coordinates(survey_domain_jsoes_cov)) -> survey_domain_jsoes_cov_coords
-survey_predict_grid_jsoes <- data.frame(X = survey_domain_jsoes_cov_coords$X,
-                                        Y = survey_domain_jsoes_cov_coords$Y,
-                                        SST = survey_domain_jsoes_cov$SST,
-                                        year = survey_domain_jsoes_cov$year,
-                                        dist_shore = as.numeric(survey_domain_jsoes_cov$sf_dist_shore))
-
-# rescale prediction grid
-survey_predict_grid_jsoes %>% 
-  mutate(SST_scaled = as.numeric(scale(SST)),
-         dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid_jsoes
-
 # Take SST grid and intersect with survey domain
 SST_sf_proj %>% 
   mutate(geometry = geometry/1000) %>% 
@@ -486,31 +467,120 @@ SST_sf_proj %>%
 SST_survey_domain_PRS %>% 
   mutate(sf_dist_shore = as.numeric(st_distance(geometry, US_west_coast_proj_km))) -> survey_domain_PRS_cov
 
+#### Trim to the years between max and min rf years ####
+survey_domain_jsoes_cov %>% 
+  filter(year >= min(rf$year) & year <= max(rf$year)) -> survey_domain_jsoes_cov_rf_allyears
+
+# because the survey_domain_jsoes_polygon is constructed from a concave hull, some of the borders
+# are a little coarse - and as a result some of the super nearshore data snuck back it.
+# filter it out
+survey_domain_jsoes_cov_rf_allyears %>% 
+  filter(sf_dist_shore >= 0.5) -> survey_domain_jsoes_cov_rf_allyears
+
+# plot it - looks good!
+ggplot(survey_domain_jsoes_cov_rf_allyears) + geom_sf()
+
+# Now reformat this object to be a data frame that we can use to predict, rather than an sf object
+as.data.frame(st_coordinates(survey_domain_jsoes_cov_rf_allyears)) -> survey_domain_jsoes_cov_rf_allyears_coords
+survey_predict_grid_jsoes_rf_allyears <- data.frame(X = survey_domain_jsoes_cov_rf_allyears_coords$X,
+                                                    Y = survey_domain_jsoes_cov_rf_allyears_coords$Y,
+                                                    SST = survey_domain_jsoes_cov_rf_allyears$SST,
+                                                    year = survey_domain_jsoes_cov_rf_allyears$year,
+                                                    dist_shore = as.numeric(survey_domain_jsoes_cov_rf_allyears$sf_dist_shore))
+
+
+# rescale prediction grid
+survey_predict_grid_jsoes_rf_allyears %>% 
+  mutate(SST_scaled = as.numeric(scale(SST)),
+         dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid_jsoes_rf_allyears
+
 # Trim to only the years of data
 survey_domain_PRS_cov %>% 
-  filter(year %in% unique(rf$year)) -> survey_domain_PRS_cov
+  filter(year >= min(rf$year) & year <= max(rf$year)) -> survey_domain_PRS_cov_rf_allyears
 
 # because the survey_domain_PRS_polygon is constructed from a concave hull, some of the borders
 # are a little coarse - and as a result some of the super nearshore data snuck back it.
 # filter it out
-survey_domain_PRS_cov %>% 
-  filter(sf_dist_shore >= 0.5) -> survey_domain_PRS_cov
+survey_domain_PRS_cov_rf_allyears %>% 
+  filter(sf_dist_shore >= 0.5) -> survey_domain_PRS_cov_rf_allyears
 
 # plot it - looks good!
-ggplot(survey_domain_PRS_cov) + geom_sf()
+ggplot(survey_domain_PRS_cov_rf_allyears) + geom_sf()
 
 # Now reformat this object to be a data frame that we can use to predict, rather than an sf object
-as.data.frame(st_coordinates(survey_domain_PRS_cov)) -> survey_domain_PRS_cov_coords
-survey_predict_grid_PRS <- data.frame(X = survey_domain_PRS_cov_coords$X,
-                                      Y = survey_domain_PRS_cov_coords$Y,
-                                      SST = survey_domain_PRS_cov$SST,
-                                      year = survey_domain_PRS_cov$year,
-                                      dist_shore = as.numeric(survey_domain_PRS_cov$sf_dist_shore))
+as.data.frame(st_coordinates(survey_domain_PRS_cov_rf_allyears)) -> survey_domain_PRS_cov_rf_allyears_coords
+survey_predict_grid_PRS <- data.frame(X = survey_domain_PRS_cov_rf_allyears_coords$X,
+                                      Y = survey_domain_PRS_cov_rf_allyears_coords$Y,
+                                      SST = survey_domain_PRS_cov_rf_allyears$SST,
+                                      year = survey_domain_PRS_cov_rf_allyears$year,
+                                      dist_shore = as.numeric(survey_domain_PRS_cov_rf_allyears$sf_dist_shore))
 
 # rescale prediction grid
 survey_predict_grid_PRS %>% 
   mutate(SST_scaled = as.numeric(scale(SST)),
          dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid_PRS
+
+# check that we don't have any points with missing data
+survey_area_basemap_km +
+  geom_point(data = subset(survey_predict_grid_PRS, is.na(SST)), aes(x = X, y = Y))
+
+
+#### Trim to only the years of data in rf ####
+survey_domain_jsoes_cov %>% 
+  filter(year %in% unique(rf$year)) -> survey_domain_jsoes_cov_rf_years
+
+# because the survey_domain_jsoes_polygon is constructed from a concave hull, some of the borders
+# are a little coarse - and as a result some of the super nearshore data snuck back it.
+# filter it out
+survey_domain_jsoes_cov_rf_years %>% 
+  filter(sf_dist_shore >= 0.5) -> survey_domain_jsoes_cov_rf_years
+
+# plot it - looks good!
+ggplot(survey_domain_jsoes_cov_rf_years) + geom_sf()
+
+# Now reformat this object to be a data frame that we can use to predict, rather than an sf object
+as.data.frame(st_coordinates(survey_domain_jsoes_cov_rf_years)) -> survey_domain_jsoes_cov_rf_years_coords
+survey_predict_grid_jsoes_rf_years <- data.frame(X = survey_domain_jsoes_cov_rf_years_coords$X,
+                                        Y = survey_domain_jsoes_cov_rf_years_coords$Y,
+                                        SST = survey_domain_jsoes_cov_rf_years$SST,
+                                        year = survey_domain_jsoes_cov_rf_years$year,
+                                        dist_shore = as.numeric(survey_domain_jsoes_cov_rf_years$sf_dist_shore))
+
+
+# rescale prediction grid
+survey_predict_grid_jsoes_rf_years %>% 
+  mutate(SST_scaled = as.numeric(scale(SST)),
+         dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid_jsoes_rf_years
+
+# Trim to only the years of data
+survey_domain_PRS_cov %>% 
+  filter(year %in% unique(rf$year)) -> survey_domain_PRS_cov_rf_years
+
+# because the survey_domain_PRS_polygon is constructed from a concave hull, some of the borders
+# are a little coarse - and as a result some of the super nearshore data snuck back it.
+# filter it out
+survey_domain_PRS_cov_rf_years %>% 
+  filter(sf_dist_shore >= 0.5) -> survey_domain_PRS_cov_rf_years
+
+# plot it - looks good!
+ggplot(survey_domain_PRS_cov_rf_years) + geom_sf()
+
+# Now reformat this object to be a data frame that we can use to predict, rather than an sf object
+as.data.frame(st_coordinates(survey_domain_PRS_cov_rf_years)) -> survey_domain_PRS_cov_rf_years_coords
+survey_predict_grid_PRS <- data.frame(X = survey_domain_PRS_cov_rf_years_coords$X,
+                                      Y = survey_domain_PRS_cov_rf_years_coords$Y,
+                                      SST = survey_domain_PRS_cov_rf_years$SST,
+                                      year = survey_domain_PRS_cov_rf_years$year,
+                                      dist_shore = as.numeric(survey_domain_PRS_cov_rf_years$sf_dist_shore))
+
+# rescale prediction grid
+survey_predict_grid_PRS %>% 
+  mutate(SST_scaled = as.numeric(scale(SST)),
+         dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid_PRS
+
+# check that we don't have any points with missing data
+survey_area_basemap_km +
+  geom_point(data = subset(survey_predict_grid_PRS, is.na(SST)), aes(x = X, y = Y))
 
 # Ok - now we are finally ready to create our mesh!
 
@@ -521,50 +591,54 @@ survey_predict_grid_PRS %>%
 # In order to get our model to predict throughout the survey domain, we'll need to rbind
 # the projection grid and sampling coordinates
 
-# for our samples, we want to restrict to only the PRS domain. The PWCC domain
-# goes all the way south into Southern California, and we don't want to fit our SDM
-# to that.
+# To construct our mesh, we want to restrict our analysis to the samples north of Cape Mendocino (40.42 N)
 
-rf_samples_PRS_domain <- subset(rf, Y >= min_Y_PRS-10)
+cape_mendocino <- st_as_sf(data.frame(lat = 40.42, lon = -124.4), coords = c("lon", "lat"), crs = 4326)
+
+cape_mendocino <- sf::st_transform(cape_mendocino, crs = UTM_zone_10_crs) 
+cape_mendocino <- st_as_sf(cape_mendocino$geometry/1000, crs = UTM_zone_10_crs)
+
+
+rf_samples_study_domain <- subset(rf, Y >= as.data.frame(st_coordinates(cape_mendocino))$Y)
 
 
 
 ## For JSOES survey domain:
 # first extract the grid for the projection area
 # the grid dimensions are the same each year, so just select one year and drop fields besides geometry
-survey_domain_jsoes_cov %>% 
+survey_domain_jsoes_cov_rf_years %>% 
   filter(year == 2016) %>% 
-  dplyr::select(geometry) -> survey_domain_jsoes_cov_grid
+  dplyr::select(geometry) -> survey_domain_jsoes_cov_rf_years_grid
 
 # extract only coordinates
-jsoes_projection_coords <- as.data.frame(st_coordinates(survey_domain_jsoes_cov_grid))
+jsoes_projection_coords <- as.data.frame(st_coordinates(survey_domain_jsoes_cov_rf_years_grid))
 colnames(jsoes_projection_coords) <- c("X", "Y")
 
 # combine the samples and the projection grid
-dplyr::select(rf_samples_PRS_domain, X, Y) %>% 
+dplyr::select(rf_samples_study_domain, X, Y) %>% 
   bind_rows(jsoes_projection_coords) -> rf_jsoes_all_points
 
 ## For PRS survey domain:
 # first extract the grid for the projection area
 # the grid dimensions are the same each year, so just select one year and drop fields besides geometry
-survey_domain_PRS_cov %>% 
+survey_domain_PRS_cov_rf_years %>% 
   filter(year == 2016) %>% 
-  dplyr::select(geometry) -> survey_domain_PRS_cov_grid
+  dplyr::select(geometry) -> survey_domain_PRS_cov_rf_years_grid
 
 # extract only coordinates
-PRS_projection_coords <- as.data.frame(st_coordinates(survey_domain_PRS_cov_grid))
+PRS_projection_coords <- as.data.frame(st_coordinates(survey_domain_PRS_cov_rf_years_grid))
 colnames(PRS_projection_coords) <- c("X", "Y")
 
 # combine the samples and the projection grid
-dplyr::select(rf_samples_PRS_domain, X, Y) %>% 
+dplyr::select(rf_samples_study_domain, X, Y) %>% 
   bind_rows(PRS_projection_coords) -> rf_PRS_all_points
 
 # From these objects, we then can create a mesh that will be used by the SPDE method.
 
 # use a boundary to ensure that our mesh matches our survey grid
 # remove some samples to ensure no bulges in the mesh
-# bnd <- INLA::inla.nonconvex.hull(cbind(rf_samples_PRS_domain$X, rf_samples_PRS_domain$Y), convex = -0.1)
-bnd <- INLA::inla.nonconvex.hull(cbind(subset(rf_samples_PRS_domain, sf_dist_shore < 45*1.852)$X, subset(rf_samples_PRS_domain, sf_dist_shore < 45*1.852)$Y), convex = -0.1)
+# bnd <- INLA::inla.nonconvex.hull(cbind(rf_samples_study_domain$X, rf_samples_study_domain$Y), convex = -0.1)
+bnd <- INLA::inla.nonconvex.hull(cbind(subset(rf_samples_study_domain, sf_dist_shore < 45*1.852)$X, subset(rf_samples_study_domain, sf_dist_shore < 45*1.852)$Y), convex = -0.1)
 
 # make versions of the mesh using the boundary object at varying resolution
 
@@ -655,12 +729,23 @@ dev.off()
 
 # transform mesh to sf
 fm_as_sfc(inla_mesh_cutoff15_jsoes_domain) %>% 
-   st_set_crs(st_crs(survey_domain_jsoes_cov_grid)) -> inla_mesh_cutoff15_jsoes_domain_sf
+   st_set_crs(st_crs(survey_domain_jsoes_cov_rf_years_grid)) -> inla_mesh_cutoff15_jsoes_domain_sf
 
 rockfish_mesh_plus_points_plot <- survey_area_basemap_km +
   geom_sf(data = inla_mesh_cutoff15_jsoes_domain_sf, fill = NA) +
-  geom_sf(data = survey_domain_jsoes_cov_grid) +
+  geom_sf(data = survey_domain_jsoes_cov_rf_years_grid) +
   geom_point(data = rf, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
 
 ggsave(here::here("two_stage_models", "figures", "rockfish_mesh_plus_points_plot.png"), rockfish_mesh_plus_points_plot,  height = 10, width = 6)
 
+
+# build this up sequentially for presentation
+
+# survey area and mesh and samples
+rockfish_samples_mesh_map <- survey_area_basemap_km +
+  geom_sf(data = inla_mesh_cutoff15_jsoes_domain_sf, fill = NA) +
+  # geom_sf(data = survey_domain_cov_grid) +
+  # geom_point(data = subset(rf, Y >= 4800), aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
+  geom_point(data = rf, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
+
+ggsave(here::here("figures", "presentation_figures", "rockfish_samples_mesh_map.png"), rockfish_samples_mesh_map,  height = 10, width = 6)
