@@ -1,6 +1,6 @@
 # generate figures for density and SE density for one SDM
 
-generate_prediction_maps <- function(report, obj, opt, model_name){
+generate_prediction_maps_PRS_PWCC <- function(report, obj, opt, model_name){
   
   # survey_predict_grid is a grid for making predictions that is created in the sourced scripts
   # trim survey_predict_grid to only the years of interest
@@ -42,7 +42,7 @@ generate_prediction_maps <- function(report, obj, opt, model_name){
     scale_fill_viridis_c( trans = "sqrt",
                           # trim extreme high values to make spatial variation more visible
                           na.value = "yellow",  limits = c(0, quantile(SDM_predict_grid$SE_ln_d_gt, 0.995)),
-                          name = "SE [log-\ndensity]\n(N per km)") +
+                          name = "SE [log-\ndensity]\n(total)") +
     facet_wrap(~year, nrow = 3) +
     theme(axis.text = element_blank(),
           # legend.position = c(0.93, 0.20),

@@ -84,7 +84,7 @@ cAIC <- function(model_data,
   
   ## use '-' for Hess because model returns negative loglikelihood
   if (is.null(model_obj$env$random)) {
-    cli_inform(c("This model has no random effects.", "cAIC and EDF only apply to models with random effects."))
+    print(c("This model has no random effects.", "cAIC and EDF only apply to models with random effects."))
     return(invisible(NULL))
   }
   Hess_new <- -Matrix::Matrix(obj_new$env$f(parDataMode, order = 1, type = "ADGrad"), sparse = TRUE)
