@@ -435,6 +435,7 @@ survey_data_for_map <- data.frame(Survey = survey_data_sf_proj$survey,
                                   lat = survey_data_coords[,2])
 
 
+
 #### Generate figure ####
 survey_shapes <- c("JSOES" = 18,
                    "PRS" = 15,
