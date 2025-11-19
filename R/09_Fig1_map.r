@@ -355,6 +355,8 @@ CRB_map <- ggplot(usa_spdf) +
         panel.grid.minor = element_blank(),
         legend.position = c(0.14, 0.2),
         legend.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 16),
         legend.text = element_text(size = 12))+
   guides(fill = guide_legend(title = "Legend")) +
   # add a north arrow
@@ -440,13 +442,22 @@ survey_shapes <- c("JSOES" = 18,
                    "PRS" = 15,
                    "Hake" = 16)
 
-survey_sizes <- c("JSOES" = 3,
-                  "PRS" = 2,
-                  "Hake" = 1.3)
+survey_sizes <- c("JSOES" = 3.1,
+                  "PRS" = 2.3,
+                  "Hake" = 1.6)
+
+# survey_colors <- c("JSOES" = "#440154",
+#                    "PRS" = "#21918c",
+#                    "Hake" = "#5ec962")
+
+survey_colors <- c("JSOES" = "#a6cee3",
+                   "PRS" = "#1f78b4",
+                   "Hake" = "#b2df8a")
+
 
 fig1 <- CRB_map_plus_inset +
   geom_point(data = survey_data_for_map, aes(x = lon, y = lat, color = Survey, shape = Survey, size = Survey)) +
-  scale_color_viridis(discrete=TRUE) +
+  scale_color_manual(values = survey_colors) +
   scale_shape_manual(values = survey_shapes) +
   scale_size_manual(values = survey_sizes) +
   theme(legend.position.inside = c(0.1, 0.1)) +
