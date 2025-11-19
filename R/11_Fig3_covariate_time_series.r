@@ -46,20 +46,25 @@ SE_pianka_o_csyif_sosh_t_seabird_model <- SE_seabird_model$SE_pianka_o_csyif_sos
 SE_pianka_o_csyif_comu_t_seabird_model <- SE_seabird_model$SE_pianka_o_csyif_comu_t_seabird_model
 
 # 05.3_hake_SDM
-# load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "hake_SDM_output.rda"))
-# hake_SDM_Obj <- hake_SDM_output$hake_SDM_Obj
-# hake_SDM_Opt <- hake_SDM_output$hake_SDM_Opt
-# hake_SDM_report <- hake_SDM_output$hake_SDM_report
-# 
-# load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "estimated_SE_hake_model.rda"))
-# SE_pianka_o_csyif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_csyif_hake_t_hake_model
-# SE_pianka_o_cssif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_cssif_hake_t_hake_model
+load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "hake_SDM_output.rda"))
+hake_SDM_Obj <- hake_SDM_output$hake_SDM_Obj
+hake_SDM_Opt <- hake_SDM_output$hake_SDM_Opt
+hake_SDM_report <- hake_SDM_output$hake_SDM_report
 
+load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "estimated_SE_hake_model.rda"))
+SE_pianka_o_csyif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_csyif_hake_t_hake_model
+SE_pianka_o_cssif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_cssif_hake_t_hake_model
 
+## load data on some taxa
+jsoes_bongo_cancer_crab_larvae <- read.csv(here::here("model_inputs", "jsoes_bongo_cancer_crab_larvae.csv"))
+jsoes_bongo_cancer_crab_larvae <- subset(jsoes_bongo_cancer_crab_larvae, !(year %in% c(1998, 2022:2025)))
+sosh <- subset(birds_long, species == "sooty_shearwater")
+comu <- subset(birds_long, species == "common_murre")
 
 #### identify where in our covariance matrix our ADREPORTed variables are ####
 
 ### Prey field model
+
 common_years_prey <- intersect(
   unique(jsoes_bongo_cancer_crab_larvae$year), # jsoes bongo
   unique(rf$year) # PRS/PWCC
@@ -126,16 +131,16 @@ rownames(sosh_index_of_abundance_cov_matrix) <- min(sosh$year):max(sosh$year)
 ### Hake model
 
 # # first extract the summary of the SD
-# hake_SDM_SD_summary <- summary(hake_SDM_Opt$SD)
-# 
+hake_SDM_SD_summary <- summary(hake_SDM_Opt$SD)
+
 # # use this object to figure out what the standard errors are from our variables of interest, and then match them to the cov object
-# hake_index_of_abundance_indices <- which(grepl("hake_index_of_abundance", rownames(hake_SDM_SD_summary)))
-# hake_index_of_abundance_cov_indices <- which(sqrt(diag(hake_SDM_Opt$SD$cov)) %in% hake_SDM_SD_summary[hake_index_of_abundance_indices, "Std. Error"])
+hake_index_of_abundance_indices <- which(grepl("hake_index_of_abundance", rownames(hake_SDM_SD_summary)))
+hake_index_of_abundance_cov_indices <- which(sqrt(diag(hake_SDM_Opt$SD$cov)) %in% hake_SDM_SD_summary[hake_index_of_abundance_indices, "Std. Error"])
 
 # extract the covariance matrices for hake
-# hake_index_of_abundance_cov_matrix <- as.matrix(hake_SDM_Opt$SD$cov[hake_index_of_abundance_cov_indices, hake_index_of_abundance_cov_indices])
-# colnames(hake_index_of_abundance_cov_matrix) <- min(hake$year):max(hake$year)
-# rownames(hake_index_of_abundance_cov_matrix) <- min(hake$year):max(hake$year)
+hake_index_of_abundance_cov_matrix <- as.matrix(hake_SDM_Opt$SD$cov[hake_index_of_abundance_cov_indices, hake_index_of_abundance_cov_indices])
+colnames(hake_index_of_abundance_cov_matrix) <- min(hake$year):max(hake$year)
+rownames(hake_index_of_abundance_cov_matrix) <- min(hake$year):max(hake$year)
 
 #### Collate marine survival covariates and their uncertainties ####
 
@@ -159,6 +164,14 @@ comu_index_df <- data.frame(year = sort(unique(comu$year)),
 sosh_index_df <- data.frame(year = min(sosh$year):max(sosh$year),
                             sosh_index = seabird_SDM_report$sosh_index_of_abundance/max(seabird_SDM_report$sosh_index_of_abundance),
                             sosh_index_SE = sqrt(diag(sosh_index_of_abundance_cov_matrix))/max(seabird_SDM_report$sosh_index_of_abundance))
+sosh_index_df <- subset(sosh_index_df, year %in% unique(sosh$year))
+
+
+hake_index_df <- data.frame(year = min(hake$year):max(hake$year),
+                            hake_index = hake_SDM_report$hake_index_of_abundance/max(hake_SDM_report$hake_index_of_abundance),
+                            hake_index_SE = sqrt(diag(hake_index_of_abundance_cov_matrix))/max(hake_SDM_report$hake_index_of_abundance))
+hake_index_df <- subset(hake_index_df, year %in% unique(hake$year))
+
 
 # combine these together
 
@@ -166,7 +179,8 @@ csyif_index_df %>%
   left_join(cssif_index_df, by = "year") %>% 
   left_join(prey_field_index_df, by = "year") %>% 
   left_join(comu_index_df, by = "year") %>% 
-  left_join(sosh_index_df, by = "year") -> indices_df
+  left_join(sosh_index_df, by = "year") %>% 
+  left_join(hake_index_df, by = "year") -> indices_df
 
 indices_df %>% 
   pivot_longer(., cols = -c("year")) %>% 
@@ -176,6 +190,18 @@ indices_df %>%
 indices_long %>% 
   dplyr::select(-name) %>% 
   pivot_wider(names_from = variable, values_from = value) -> indices_long
+
+
+index_plot_titles <- data.frame(index = c("cssif_index", "csyif_index",
+                                          "prey_field_index", "comu_index",
+                                          "sosh_index", "hake_index"),
+                                name = c("Subyearlings", "Yearlings", "Prey Field",
+                                         "Common Murres", "Sooty Shearwaters", "Hake"))
+indices_long %>% 
+  left_join(index_plot_titles, by = "index") -> indices_long
+
+indices_long$name <- factor(indices_long$name, levels = c("Subyearlings", "Yearlings", "Prey Field",
+                                                          "Common Murres", "Sooty Shearwaters", "Hake"))
 
 
 ### Overlap metrics
@@ -204,24 +230,124 @@ sosh_cssif_overlap_df <- data.frame(year = sort(unique(sosh$year)),
                                     pianka_o_cssif_sosh = seabird_SDM_report$pianka_o_cssif_sosh_t,
                                     pianka_o_cssif_sosh_SE = SE_pianka_o_cssif_sosh_t_seabird_model)
 
+hake_csyif_overlap_df <- data.frame(year = sort(unique(hake$year)),
+                                    pianka_o_csyif_hake = hake_SDM_report$pianka_o_csyif_hake_t,
+                                    pianka_o_csyif_hake_SE = SE_pianka_o_csyif_hake_t_hake_model)
+
+hake_cssif_overlap_df <- data.frame(year = sort(unique(hake$year)),
+                                    pianka_o_cssif_hake = hake_SDM_report$pianka_o_cssif_hake_t,
+                                    pianka_o_cssif_hake_SE = SE_pianka_o_cssif_hake_t_hake_model)
+
 # combine these together
 
 prey_field_csyif_overlap_df %>% 
   left_join(comu_csyif_overlap_df, by = "year") %>% 
-  left_join(sosh_csyif_overlap_df, by = "year")  -> csyif_overlap_indices
+  left_join(sosh_csyif_overlap_df, by = "year") %>% 
+  left_join(hake_csyif_overlap_df, by = "year") -> csyif_overlap_indices
 
 prey_field_cssif_overlap_df %>% 
   left_join(comu_cssif_overlap_df, by = "year") %>% 
-  left_join(sosh_cssif_overlap_df, by = "year")  -> cssif_overlap_indices
+  left_join(sosh_cssif_overlap_df, by = "year") %>% 
+  left_join(hake_cssif_overlap_df, by = "year")  -> cssif_overlap_indices
+
+csyif_overlap_indices %>% 
+  left_join(cssif_overlap_indices, by = "year") -> overlap_df
+
+overlap_df %>% 
+  pivot_longer(., cols = -c("year")) %>% 
+  mutate(variable = ifelse(grepl("SE", name), "SE", "estimate")) %>% 
+  mutate(index = gsub("_SE", "", name)) -> overlap_long
+
+overlap_long %>% 
+  dplyr::select(-name) %>% 
+  pivot_wider(names_from = variable, values_from = value) -> overlap_long
+
+
+overlap_plot_titles <- data.frame(index = c("pianka_o_csyif_prey_field",
+                                            "pianka_o_csyif_comu",
+                                            "pianka_o_csyif_sosh",
+                                            "pianka_o_csyif_hake",
+                                            "pianka_o_cssif_prey_field",
+                                            "pianka_o_cssif_comu",
+                                            "pianka_o_cssif_sosh",
+                                            "pianka_o_cssif_hake"),
+                                name = c("Yearlings x Prey Field",
+                                         "Yearlings x Common Murres",
+                                         "Yearlings x Sooty Shearwaters",
+                                         "Yearlings x Hake",
+                                         "Subyearlings x Prey Field",
+                                         "Subyearlings x Common Murres",
+                                         "Subyearlings x Sooty Shearwaters",
+                                         "Subyearlings x Hake"))
+overlap_long %>% 
+  left_join(overlap_plot_titles, by = "index") -> overlap_long
+
+overlap_long$name <- factor(overlap_long$name, levels = c("Yearlings x Prey Field",
+                                                          "Yearlings x Common Murres",
+                                                          "Yearlings x Sooty Shearwaters",
+                                                          "Yearlings x Hake",
+                                                          "Subyearlings x Prey Field",
+                                                          "Subyearlings x Common Murres",
+                                                          "Subyearlings x Sooty Shearwaters",
+                                                          "Subyearlings x Hake"))
+
+
+
 
 #### Generate figures ####
 
-ggplot(indices_long, aes(x = year, y = estimate, 
+# SANITY CHECK
+hake %>% group_by(year) %>% summarise(total = sum(NASC))
+sosh %>% group_by(year) %>% summarise(total = sum(n_per_km2))
+comu %>% group_by(year) %>% summarise(total = sum(n_per_km2))
+csyif %>% group_by(year) %>% summarise(total = sum(n_per_km))
+cssif %>% group_by(year) %>% summarise(total = sum(n_per_km))
+
+
+abundance_ts_plot <- ggplot(indices_long, aes(x = year, y = estimate, 
                          ymin = estimate - 1.96*SE,
                          ymax = estimate + 1.96*SE)) +
   geom_point() +
-  geom_errorbar() +
+  geom_errorbar(width = 0.5) +
   geom_line() +
-  facet_wrap(~index, ncol = 1)
+  facet_wrap(~name, ncol = 1) +
+  ylab("Relative Abundance Index") +
+  xlab("Year") +
+  theme(plot.background = element_rect(fill = "white"),
+        strip.background = element_rect(fill = "white"),
+        # panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+
+ggsave(here::here("figures", "paper_figures", "fig3a_abundance_ts_plot.png"), abundance_ts_plot,  
+       height = 8, width = 4)
+
+overlap_ts_plot <- ggplot(overlap_long, aes(x = year, y = estimate, 
+                                              ymin = estimate - 1.96*SE,
+                                              ymax = estimate + 1.96*SE)) +
+  geom_point() +
+  geom_errorbar(width = 0.5) +
+  geom_line() +
+  facet_wrap(~name, ncol = 1) +
+  ylab("Local Index of Collocation") +
+  xlab("Year") +
+  theme(plot.background = element_rect(fill = "white"),
+        strip.background = element_rect(fill = "white"),
+        # panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+
+ggsave(here::here("figures", "paper_figures", "fig3b_overlap_ts_plot.png"), overlap_ts_plot,  
+       height = 8, width = 4)
+
+
+fig3_covariates_ts <- ggarrange(abundance_ts_plot,
+                               overlap_ts_plot, 
+                               ncol = 2, nrow = 1)
+
+ggsave(here::here("figures", "paper_figures", "fig3_covariates_ts.png"), fig3_covariates_ts,  
+       height = 8, width = 8)
+
+
+
+
 
 
