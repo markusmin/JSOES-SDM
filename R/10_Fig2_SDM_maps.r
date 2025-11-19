@@ -50,14 +50,14 @@ SE_pianka_o_csyif_sosh_t_seabird_model <- SE_seabird_model$SE_pianka_o_csyif_sos
 SE_pianka_o_csyif_comu_t_seabird_model <- SE_seabird_model$SE_pianka_o_csyif_comu_t_seabird_model
 
 # 05.3_hake_SDM
-# load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "hake_SDM_output.rda"))
-# hake_SDM_Obj <- hake_SDM_output$hake_SDM_Obj
-# hake_SDM_Opt <- hake_SDM_output$hake_SDM_Opt
-# hake_SDM_report <- hake_SDM_output$hake_SDM_report
-# 
-# load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "estimated_SE_hake_model.rda"))
-# SE_pianka_o_csyif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_csyif_hake_t_hake_model
-# SE_pianka_o_cssif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_cssif_hake_t_hake_model
+load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "hake_SDM_output.rda"))
+hake_SDM_Obj <- hake_SDM_output$hake_SDM_Obj
+hake_SDM_Opt <- hake_SDM_output$hake_SDM_Opt
+hake_SDM_report <- hake_SDM_output$hake_SDM_report
+
+load(here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "estimated_SE_hake_model.rda"))
+SE_pianka_o_csyif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_csyif_hake_t_hake_model
+SE_pianka_o_cssif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_cssif_hake_t_hake_model
 
 
 #### Estimate uncertainty in density for each taxon ####
