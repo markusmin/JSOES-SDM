@@ -17,6 +17,8 @@ library(broom)
 library(ggpubr)
 library(sf)
 library(lubridate)
+library(TMB)
+library(RColorBrewer)
 
 # source the prep scripts for each of the surveys
 # source(here::here("R", "CCES_make_mesh.R"))
@@ -63,24 +65,24 @@ SE_pianka_o_cssif_hake_t_hake_model <- SE_hake_model$SE_pianka_o_cssif_hake_t_ha
 #### Estimate uncertainty in density for each taxon ####
 
 ### Prey taxa + salmon from the prey field model
-dyn.load(dynlib(here::here("R", "05_stage1_SDM", "05.1_prey_field_SDM", "05.1_prey_field_SDM_test21")))
+dyn.load(dynlib(here::here("R", "05_stage1_SDM", "05.1_prey_field_SDM", "05_1_prey_field_SDM_test21")))
 SE_ln_d_gt_csyif = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_csyif", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
 SE_ln_d_gt_cssif = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_cssif", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
-SE_ln_d_gt_rf = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_rf", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
-SE_ln_d_gt_cancer_crab_larvae = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_cancer_crab_larvae", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
-SE_ln_d_gt_non_cancer_crab_larvae = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_non_cancer_crab_larvae", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
-SE_ln_d_gt_shrimp_larvae = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_shrimp_larvae", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
-SE_ln_d_gt_hyperiid_amphipods = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_hyperiid_amphipods", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
+# SE_ln_d_gt_rf = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_rf", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
+# SE_ln_d_gt_cancer_crab_larvae = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_cancer_crab_larvae", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
+# SE_ln_d_gt_non_cancer_crab_larvae = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_non_cancer_crab_larvae", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
+# SE_ln_d_gt_shrimp_larvae = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_shrimp_larvae", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
+# SE_ln_d_gt_hyperiid_amphipods = sample_var( obj=prey_field_SDM_Obj, var_name="ln_d_gt_hyperiid_amphipods", mu=prey_field_SDM_Obj$env$last.par.best, prec=prey_field_SDM_Opt$SD$jointPrecision )
 
 # save all of these
-SE_prey_field_SDM <- list(SE_ln_d_gt_rf = SE_ln_d_gt_rf,
-                          SE_ln_d_gt_cancer_crab_larvae = SE_ln_d_gt_cancer_crab_larvae,
-                          SE_ln_d_gt_non_cancer_crab_larvae = SE_ln_d_gt_non_cancer_crab_larvae,
-                          SE_ln_d_gt_shrimp_larvae = SE_ln_d_gt_shrimp_larvae,
-                          SE_ln_d_gt_hyperiid_amphipods = SE_ln_d_gt_hyperiid_amphipods)
+# SE_prey_field_SDM <- list(SE_ln_d_gt_rf = SE_ln_d_gt_rf,
+#                           SE_ln_d_gt_cancer_crab_larvae = SE_ln_d_gt_cancer_crab_larvae,
+#                           SE_ln_d_gt_non_cancer_crab_larvae = SE_ln_d_gt_non_cancer_crab_larvae,
+#                           SE_ln_d_gt_shrimp_larvae = SE_ln_d_gt_shrimp_larvae,
+#                           SE_ln_d_gt_hyperiid_amphipods = SE_ln_d_gt_hyperiid_amphipods)
 
-save(SE_prey_field_SDM,
-     file = here::here("R", "05_stage1_SDM", "05.1_prey_field_SDM", "estimated_SE_density_prey_SDMs.rda"))
+# save(SE_prey_field_SDM,
+#      file = here::here("R", "05_stage1_SDM", "05.1_prey_field_SDM", "estimated_SE_density_prey_SDMs.rda"))
 
 ### seabirds from the seabird model
 dyn.load(dynlib(here::here("R", "05_stage1_SDM", "05.2_seabird_SDM", "05_2_seabird_SDM_v2")))
@@ -105,6 +107,15 @@ save(SE_seabird_SDM,
 # 
 # save(SE_hake_SDM,
 #      file = here::here("R", "05_stage1_SDM", "05.3_hake_SDM", "estimated_SE_hake_SDMs.rda"))
+
+#### load uncertainty previously calculated
+load(here::here("R", "05_stage1_SDM", "05.2_seabird_SDM", "estimated_SE_density_seabird_salmon_SDMs.rda"))
+
+SE_ln_d_gt_csyif <- SE_seabird_SDM$SE_ln_d_gt_csyif
+SE_ln_d_gt_cssif <- SE_seabird_SDM$SE_ln_d_gt_cssif
+SE_ln_d_gt_sosh <- SE_seabird_SDM$SE_ln_d_gt_sosh
+SE_ln_d_gt_comu <- SE_seabird_SDM$SE_ln_d_gt_comu
+
 
 #### Load shapefiles ####
 
@@ -375,11 +386,20 @@ generate_prediction_maps_jsoes_domain_for_fig <- function(ln_d_gt, SE_ln_d_gt, m
   density_predict_map <- fig2_jsoes_basemap +
     geom_tile(data = SDM_predict_grid, aes(x = X, y = Y, fill = d_gt),
               width = 7, height = 7) +
-    scale_fill_viridis_c( trans = "sqrt",
-                          # trim extreme high values to make spatial variation more visible
-                          na.value = "yellow", limits = c(0, quantile(exp(SDM_predict_grid$ln_d_gt)*max_dens/1000, 0.999)),
-                          name = density_units,
-                          breaks = plotting_breaks) +
+    # scale_fill_viridis_c( trans = "sqrt",
+    #                       # trim extreme high values to make spatial variation more visible
+    #                       na.value = "yellow", limits = c(0, quantile(exp(SDM_predict_grid$ln_d_gt)*max_dens/1000, 0.999)),
+    #                       name = density_units,
+    #                       breaks = plotting_breaks) +
+    
+    scale_fill_distiller(palette = "BuPu",
+                         trans = "sqrt",
+                         direction = 1,
+                         # trim extreme high values to make spatial variation more visible
+                         na.value = "#54278f", limits = c(0, quantile(exp(SDM_predict_grid$ln_d_gt)*max_dens/1000, 0.999)),
+                         name = density_units,
+                         breaks = plotting_breaks) +
+    
     facet_wrap(~year, nrow = 2) +
     theme(legend.position = "bottom",
           legend.key.height = unit(0.35, "cm"),
@@ -436,10 +456,17 @@ generate_overlap_map_jsoes_domain <- function(overlap_df, plotting_years){
   overlap_predict_map <- fig2_jsoes_basemap +
     geom_tile(data = overlap_df_for_plot, aes(x = X, y = Y, fill = ov_A_B),
               width = 7, height = 7) +
-    scale_fill_viridis_c(option = "inferno",
+    # scale_fill_viridis_c(option = "magma",
+    #                      breaks = plotting_breaks,
+    #                      lim = c(0, round(max(overlap_df_for_plot$ov_A_B),3)),
+    #                      name = "Local\nIndex of\nCollocation") +
+    
+    scale_fill_distiller(palette = "OrRd",
                          breaks = plotting_breaks,
                          lim = c(0, round(max(overlap_df_for_plot$ov_A_B),3)),
+                         direction = 1,
                          name = "Local\nIndex of\nCollocation") +
+    
     # scale_fill_viridis_c( trans = "sqrt",
     #                       # trim extreme high values to make spatial variation more visible
     #                       na.value = "yellow", limits = c(0, quantile(exp(SDM_predict_grid$ln_d_gt)*max_dens/1000, 0.999)),
@@ -543,60 +570,6 @@ fig2_SDMs_overlap <- ggarrange(csyif_prediction_maps_fig2[[1]],
 
 ggsave(here::here("figures", "paper_figures", "fig2_SDMs_overlap.png"), fig2_SDMs_overlap,
        height = 8, width = 6)
-
-
-
-
-#### OLD CODE ####
-
-csyif_prediction_maps_2005 <- generate_prediction_maps_jsoes_domain(ln_d_gt = seabird_SDM_report$ln_d_gt_csyif,
-                                                               SE_ln_d_gt = SE_ln_d_gt_csyif,
-                                                               model_years = sort(unique(csyif$year)),
-                                                               plotting_years = 2005,
-                                                               max_dens = max(csyif$n_per_km),
-                                                               density_units = "Predicted\ndensity\n(N per km)",
-                                                               SE_density_units = "SE [log-\ndensity]\n(N per km)")
-
-csyif_prediction_maps_2011 <- generate_prediction_maps_jsoes_domain(ln_d_gt = seabird_SDM_report$ln_d_gt_csyif,
-                                                                    SE_ln_d_gt = SE_ln_d_gt_csyif,
-                                                                    model_years = sort(unique(csyif$year)),
-                                                                    plotting_years = 2005,
-                                                                    max_dens = max(csyif$n_per_km),
-                                                                    density_units = "Predicted\ndensity\n(N per km)",
-                                                                    SE_density_units = "SE [log-\ndensity]\n(N per km)")
-
-sosh_prediction_maps_2005 <- generate_prediction_maps_jsoes_domain(ln_d_gt = seabird_SDM_report$ln_d_gt_sosh,
-                                                                    SE_ln_d_gt = SE_ln_d_gt_sosh,
-                                                                   model_years = min(sosh$year):max(sosh$year),
-                                                                   plotting_years = 2005,
-                                                                    max_dens = max(sosh$n_per_km2),
-                                                                    density_units = "Predicted\ndensity\n(N per km^2)",
-                                                                    SE_density_units = "SE [log-\ndensity]\n(N per km^2)")
-
-sosh_prediction_maps_2011 <- generate_prediction_maps_jsoes_domain(ln_d_gt = seabird_SDM_report$ln_d_gt_sosh,
-                                                                    SE_ln_d_gt = SE_ln_d_gt_sosh,
-                                                                   model_years = min(sosh$year):max(sosh$year),
-                                                                   plotting_years = 2005,
-                                                                    max_dens = max(sosh$n_per_km2),
-                                                                    density_units = "Predicted\ndensity\n(N per km^2)",
-                                                                    SE_density_units = "SE [log-\ndensity]\n(N per km^2)")
-
-# plot overlap in 2005
-csyif_sosh_overlap_plot_2005 <- generate_overlap_map_jsoes_domain(overlap_df = csyif_sosh_overlap_df, 
-                                                             plotting_years = c(2005))
-
-ggsave(here::here("figures", "paper_figures", "csyif_sosh_overlap_map_2005.png"), csyif_sosh_overlap_plot_2005,
-       height = 8, width = 4)
-
-# plot overlap in 2011
-csyif_sosh_overlap_plot_2011 <- generate_overlap_map_jsoes_domain(overlap_df = csyif_sosh_overlap_df, 
-                                                                  plotting_years = c(2011))
-
-ggsave(here::here("figures", "paper_figures", "csyif_sosh_overlap_map_2011.png"), csyif_sosh_overlap_plot_2011,
-       height = 8, width = 4)
-
-
-
 
 
 
