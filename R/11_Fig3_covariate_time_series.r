@@ -282,14 +282,14 @@ overlap_plot_titles <- data.frame(index = c("pianka_o_csyif_prey_field",
 overlap_long %>% 
   left_join(overlap_plot_titles, by = "index") -> overlap_long
 
-overlap_long$name <- factor(overlap_long$name, levels = c("Yearlings x Prey Field",
-                                                          "Yearlings x Common Murres",
-                                                          "Yearlings x Sooty Shearwaters",
-                                                          "Yearlings x Hake",
-                                                          "Subyearlings x Prey Field",
+overlap_long$name <- factor(overlap_long$name, levels = c("Subyearlings x Prey Field",
                                                           "Subyearlings x Common Murres",
                                                           "Subyearlings x Sooty Shearwaters",
-                                                          "Subyearlings x Hake"))
+                                                          "Subyearlings x Hake",
+                                                          "Yearlings x Prey Field",
+                                                          "Yearlings x Common Murres",
+                                                          "Yearlings x Sooty Shearwaters",
+                                                          "Yearlings x Hake"))
 
 
 
@@ -345,6 +345,74 @@ fig3_covariates_ts <- ggarrange(abundance_ts_plot,
 
 ggsave(here::here("figures", "paper_figures", "fig3_covariates_ts.png"), fig3_covariates_ts,  
        height = 8, width = 8)
+
+#### Version 2 - new layout ####
+
+# subyearlings and yearlings together on one plot
+chinook_abundance_ts_plot <- ggplot(subset(indices_long, name %in% c("Yearlings", "Subyearlings")), aes(x = year, y = estimate, 
+                                              ymin = estimate - 1.96*SE,
+                                              ymax = estimate + 1.96*SE)) +
+  geom_point() +
+  geom_errorbar(width = 0.5) +
+  geom_line() +
+  facet_wrap(~name, ncol = 1) +
+  scale_y_continuous(labels = c("0.00", "0.50", "1.00", "1.50", "2.00")) +
+  ylab("Relative Abundance Index") +
+  xlab("Year") +
+  theme(plot.background = element_rect(fill = "white"),
+        strip.background = element_rect(fill = "white"),
+        # panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+
+# prey field, common murres, sooty shearwaters, and hake on one plot
+
+non_chinook_abundance_ts_plot <- ggplot(subset(indices_long, !(name %in% c("Yearlings", "Subyearlings"))), aes(x = year, y = estimate, 
+                                                                                                        ymin = estimate - 1.96*SE,
+                                                                                                        ymax = estimate + 1.96*SE)) +
+  geom_point() +
+  geom_errorbar(width = 0.5) +
+  geom_line() +
+  facet_wrap(~name, nrow = 1) +
+  ylab("Relative Abundance Index") +
+  scale_y_continuous(labels = c("0.00", "0.50", "1.00", "1.50", "2.00")) +
+  xlab("Year") +
+  theme(plot.background = element_rect(fill = "white"),
+        strip.background = element_rect(fill = "white"),
+        # panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+
+
+# overlap on one plot
+
+interior_overlap_ts_plot <- ggplot(overlap_long, aes(x = year, y = estimate, 
+                                            ymin = estimate - 1.96*SE,
+                                            ymax = estimate + 1.96*SE)) +
+  geom_point() +
+  geom_errorbar(width = 0.5) +
+  geom_line() +
+  facet_wrap(~name, ncol = 4) +
+  ylab("Local Index of Collocation") +
+  scale_x_continuous(lim = c(min(indices_long$year), max(indices_long$year))) +
+  xlab("Year") +
+  theme(plot.background = element_rect(fill = "white"),
+        strip.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 7.5),
+        # panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+
+fig3_v2_covariates_ts <- ggarrange(NULL,
+                                   non_chinook_abundance_ts_plot,
+                                   chinook_abundance_ts_plot,
+                                   interior_overlap_ts_plot, 
+                                   widths = c(2, 6, 2, 6),
+                                   heights = c(2.67, 5.33),
+                                ncol = 2, nrow = 2)
+
+ggsave(here::here("figures", "paper_figures", "fig3_v2_covariates_ts.png"), fig3_v2_covariates_ts,  
+       height = 10, width = 10)
+
+
+
 
 
 
