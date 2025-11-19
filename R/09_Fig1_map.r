@@ -278,10 +278,10 @@ inset_map <- ggplot(usa_spdf) +
   geom_sf(data = us_states_proj, fill = "transparent", color = "gray70") + 
   # add the major rivers layer
   # geom_sf(data = major_rivers_proj, color = "gray70", linewidth = 0.2, fill = "gray70") +
-  coord_sf(ylim = c(36,56),  xlim = c(-132, -95), expand = FALSE) +
+  coord_sf(ylim = c(36,52.5),  xlim = c(-132, -95), expand = FALSE) +
   annotate(geom = "text", x = -105, y = 39, label = "United States\nof America",
            fontface = "italic", hjust = 0.5) + 
-  annotate(geom = "text", x = -110, y = 52, label = "Canada",
+  annotate(geom = "text", x = -110, y = 51, label = "Canada",
            fontface = "italic") + 
   # remove axis text and labels
   theme(axis.text = element_blank(),
@@ -346,6 +346,7 @@ CRB_map <- ggplot(usa_spdf) +
   
   annotate("text", x = BON_coords[1], y = BON_coords[2], label = "|", size = 12) + # Bonneville Dam
   annotate("text", x = BON_coords[1], y = BON_coords[2]+0.35, label = "Bonneville\nDam", size = 6, hjust = 0.5) + # Bonneville Dam
+  annotate("text", x = -123.33, y = 45.60, label = "Columbia River", size = 6, fontface = 'italic', hjust = 0, vjust = 0, angle = -18) + # Columbia River
   
   theme(plot.background = element_rect(fill = "white"),
         panel.background = element_rect(fill="white", color = "black"),
@@ -376,7 +377,7 @@ CRB_map <- ggplot(usa_spdf) +
 CRB_map +
   annotation_custom(grob = ggplotGrob(inset_map),
                     xmin = -123.2, xmax = -121,
-                    ymin = 44.35, ymax = 45.4) -> CRB_map_plus_inset
+                    ymin = 44.35, ymax = 45.2) -> CRB_map_plus_inset
 
   
 
@@ -406,9 +407,7 @@ hake %>%
   filter(year == 2013) %>% 
   # filter(Lat >= 44) %>% 
   filter(Y > 4905) %>% 
-  mutate(survey = "Hake") %>% 
-  mutate(Date = ymd(Date)) %>% 
-  mutate(month = month(Date)) -> hake_stations
+  mutate(survey = "Hake") -> hake_stations
 
 dplyr::select(jsoes_stations, survey, X, Y) %>% 
   # bind_rows(dplyr::select(bird_stations, survey, X, Y)) %>% 
@@ -443,7 +442,7 @@ survey_shapes <- c("JSOES" = 18,
 
 survey_sizes <- c("JSOES" = 3,
                   "PRS" = 2,
-                  "Hake" = 1)
+                  "Hake" = 1.3)
 
 fig1 <- CRB_map_plus_inset +
   geom_point(data = survey_data_for_map, aes(x = lon, y = lat, color = Survey, shape = Survey, size = Survey)) +
