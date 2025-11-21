@@ -234,8 +234,174 @@ ggsave(here::here("figures", "paper_figures", "parameter_estimate_plots", "hake_
        height = 12, width = 16)
 
 
+#### Version for paper figure
+
+plot_FE_estimates_forfig <- function(fixed_effects_SD_summary, drop_intercept = TRUE,
+                              drop_outmigration = TRUE,
+                              drop_transport = TRUE,
+                              drop_chinook_abundance = TRUE){
+  if(drop_intercept == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, parameter != "beta_0")
+  }
+  if(drop_outmigration == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, !(parameter %in% c("beta_outmigration", "beta_outmigration2")))
+  }
+  if(drop_transport == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, parameter != "beta_transport")
+  }
+  if(drop_chinook_abundance == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, !(parameter %in% c("beta_csyif_index", "beta_cssif_index")))
+  }
+  
+  significance_colors = c("significant" = "black",
+                          "not significant" = "gray80")
+  
+  plot <- ggplot(fixed_effects_SD_summary, aes(x = name, y = estimate,
+                                               ymax = upper, ymin = lower)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    geom_point(size = 5) +
+    geom_errorbar(width = 0.2) +
+    # scale_color_manual(values = significance_colors) +
+    guides(color = guide_legend(position = "inside")) +
+    theme(legend.position.inside = c(0.1, 0.1)) +
+    xlab("Marine Survival Covariate") +
+    ylab("Parameter Estimate") +
+    facet_wrap(~model, ncol = 1) +
+    theme(panel.grid.major = element_line(color = "gray90"),
+          panel.background = element_rect(fill = "white", color = NA),
+          panel.border = element_rect(color = NA, fill=NA, linewidth=0.4),
+          legend.key.height = unit(1.25, "cm"),
+          legend.key.width = unit(1.25, "cm"),
+          legend.title = element_text(size = 25),
+          legend.text = element_text(size = 15),
+          axis.text.y = element_text(size = 15),
+          axis.text.x = element_text(size = 12),
+          strip.background = element_rect(fill = "white"),
+          strip.text = element_text(size = 12),
+          axis.title.x = element_text(size = 20, margin = margin(t = 10)),
+          axis.title.y = element_text(size = 20, margin = margin(r = 10)),
+          # these plot margins are to leave space for the population name on the big figure
+          plot.margin = unit(c(0.2, 0.2, 0.2, 0.2),"cm"))
+  
+  return(plot)
+} 
+
+plot_FE_estimates_forfig_combined <- function(fixed_effects_SD_summary, drop_intercept = TRUE,
+                                     drop_outmigration = TRUE,
+                                     drop_transport = TRUE,
+                                     drop_chinook_abundance = TRUE){
+  if(drop_intercept == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, parameter != "beta_0")
+  }
+  if(drop_outmigration == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, !(parameter %in% c("beta_outmigration", "beta_outmigration2")))
+  }
+  if(drop_transport == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, parameter != "beta_transport")
+  }
+  if(drop_chinook_abundance == TRUE){
+    fixed_effects_SD_summary <- subset(fixed_effects_SD_summary, !(parameter %in% c("beta_csyif_index", "beta_cssif_index")))
+  }
+  
+  significance_colors = c("significant" = "black",
+                          "not significant" = "gray80")
+  
+  plot <- ggplot(fixed_effects_SD_summary, aes(x = name, y = estimate,
+                                               ymax = upper, ymin = lower)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    geom_point(size = 5) +
+    geom_errorbar(width = 0.2) +
+    # scale_color_manual(values = significance_colors) +
+    guides(color = guide_legend(position = "inside")) +
+    theme(legend.position.inside = c(0.1, 0.1)) +
+    xlab("Marine Survival Covariate") +
+    ylab("Parameter Estimate") +
+    facet_wrap(~model, ncol = 2, scales = "free_x") +
+    # facet_wrap(~model, ncol = 2) +
+    theme(panel.grid.major = element_line(color = "gray90"),
+          panel.background = element_rect(fill = "white", color = NA),
+          panel.border = element_rect(color = NA, fill=NA, linewidth=0.4),
+          legend.key.height = unit(1.25, "cm"),
+          legend.key.width = unit(1.25, "cm"),
+          legend.title = element_text(size = 25),
+          legend.text = element_text(size = 15),
+          axis.text = element_text(size = 15),
+          axis.title.x = element_text(size = 20, margin = margin(t = 10)),
+          axis.title.y = element_text(size = 20, margin = margin(r = 10)),
+          # these plot margins are to leave space for the population name on the big figure
+          plot.margin = unit(c(0.2, 0.2, 0.2, 0.2),"cm"))
+  
+  return(plot)
+} 
+
+# SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$model <- "Snake River Fall - Yearlings x Seabirds"
+# SRF_06_3_hake_prey_csyif_only_SAR_SEcov_FE$model <- "Snake River Fall - Yearlings x Hake"
+# SRF_06_2_seabird_prey_cssif_only_SAR_SEcov_FE$model  <- "Snake River Fall - Subyearlings x Seabirds"
+# SRF_06_3_hake_prey_cssif_only_SAR_SEcov_FE$model  <- "Snake River Fall - Subyearlings x Hake"
+# 
+# UCSF_06_2_seabird_prey_csyif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Yearlings x Seabirds"
+# UCSF_06_3_hake_prey_csyif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Yearlings x Hake"
+# UCSF_06_2_seabird_prey_cssif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Subyearlings x Seabirds"
+# UCSF_06_3_hake_prey_cssif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Subyearlings x Hake"
+
+SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$model <- "Snake River Fall - Yearlings"
+SRF_06_3_hake_prey_csyif_only_SAR_SEcov_FE$model <- "Snake River Fall - Yearlings"
+SRF_06_2_seabird_prey_cssif_only_SAR_SEcov_FE$model  <- "Snake River Fall - Subyearlings"
+SRF_06_3_hake_prey_cssif_only_SAR_SEcov_FE$model  <- "Snake River Fall - Subyearlings"
+
+UCSF_06_2_seabird_prey_csyif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Yearlings"
+UCSF_06_3_hake_prey_csyif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Yearlings"
+UCSF_06_2_seabird_prey_cssif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Subyearlings"
+UCSF_06_3_hake_prey_cssif_only_SAR_SEcov_no_transport_FE$model <- "Upper Columbia Summer/Fall - Subyearlings"
+
+
+SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE %>% 
+  bind_rows(SRF_06_3_hake_prey_csyif_only_SAR_SEcov_FE) %>% 
+  bind_rows(SRF_06_2_seabird_prey_cssif_only_SAR_SEcov_FE) %>% 
+  bind_rows(SRF_06_3_hake_prey_cssif_only_SAR_SEcov_FE) %>% 
+  bind_rows(UCSF_06_2_seabird_prey_csyif_only_SAR_SEcov_no_transport_FE) %>% 
+  bind_rows(UCSF_06_3_hake_prey_csyif_only_SAR_SEcov_no_transport_FE) %>% 
+  bind_rows(UCSF_06_2_seabird_prey_cssif_only_SAR_SEcov_no_transport_FE) %>% 
+  bind_rows(UCSF_06_3_hake_prey_cssif_only_SAR_SEcov_no_transport_FE) -> SAR_models_FE
+
+SRF_06_3_hake_prey_csyif_only_SAR_SEcov_FE %>% 
+  bind_rows(SRF_06_3_hake_prey_cssif_only_SAR_SEcov_FE) %>% 
+  bind_rows(UCSF_06_3_hake_prey_csyif_only_SAR_SEcov_no_transport_FE) %>% 
+  bind_rows(UCSF_06_3_hake_prey_cssif_only_SAR_SEcov_no_transport_FE) -> SAR_hake_models_FE
+
+SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE %>% 
+  bind_rows(SRF_06_2_seabird_prey_cssif_only_SAR_SEcov_FE) %>% 
+  bind_rows(UCSF_06_2_seabird_prey_csyif_only_SAR_SEcov_no_transport_FE) %>% 
+  bind_rows(UCSF_06_2_seabird_prey_cssif_only_SAR_SEcov_no_transport_FE) -> SAR_seabird_models_FE
+
+SAR_seabird_models_FE_plot <- plot_FE_estimates_forfig(SAR_seabird_models_FE)
+SAR_hake_models_FE_plot <- plot_FE_estimates_forfig(SAR_hake_models_FE)
+
+ggsave(here::here("figures", "paper_figures", "parameter_estimate_plots", "SAR_seabird_models_FE_plot.png"), SAR_seabird_models_FE_plot,  
+       height = 10, width = 6)
+
+ggsave(here::here("figures", "paper_figures", "parameter_estimate_plots", "SAR_hake_models_FE_plot.png"), SAR_hake_models_FE_plot,  
+       height = 10, width = 6)
+
+fig4_SAR_parameter_estimates <- ggarrange(SAR_seabird_models_FE_plot,
+                                          SAR_hake_models_FE_plot,
+                                   labels = c("(A)", "(B)"),
+                                   font.label = list(size = 20, face = "plain"),
+                                   label.x = 0, label.y = 1,
+                                   widths = c(1.2, 1),
+                                   ncol = 2)
+
+ggsave(here::here("figures", "paper_figures", "fig4_SAR_parameter_estimates.png"), fig4_SAR_parameter_estimates,  
+       height = 12, width = 12)
+
+SAR_FE_plot <- plot_FE_estimates_forfig_combined(SAR_models_FE)
+
+ggsave(here::here("figures", "paper_figures", "parameter_estimate_plots", "fig4_SAR_parameter_estimates_v2.png"), SAR_FE_plot,  
+       height = 12, width = 12)
+
 #### Plot model fit to data ####
 
+#### Sampling approach ####
 # function to sample from estimate + SE
 generate_samples <- function(estimate, std_error, nsamples = 1000){
   param_samples <- rnorm(nsamples, mean = estimate, sd = std_error)
@@ -429,3 +595,139 @@ SRF_06_2_seabird_prey_csyif_only_SAR_predict_plot <- ggplot(SRF_06_2_seabird_pre
 ggsave(here::here("figures", "paper_figures", "SRF_06_2_seabird_prey_csyif_only_SAR_predict_plot.png"), SRF_06_2_seabird_prey_csyif_only_SAR_predict_plot,  
        height = 6, width = 8)
 
+
+
+
+#### analytical solution ####
+
+var_2_rv <- function(est1, var1, est2, var2){
+  total_var <- var1*var2 + var1*est2 + var2*est1
+  return(total_var)
+}
+
+
+# look at our latent estimates vs. the input data
+
+# ok good, it's recovering the input well
+plot(x = SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_report$csyif_index_t_latent, y = (SRF_v1_seabird_prey_predictors$csyif_index_of_abundance - mean(SRF_v1_seabird_prey_predictors$csyif_index_of_abundance))/sd(SRF_v1_seabird_prey_predictors$csyif_index_of_abundance))
+
+
+## variance of beta_0 parameter
+var_beta_0 <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_0", "variance"]
+
+## csyif index of abundance
+# expected value of beta_csyif index parameter
+est_beta_csyif_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_csyif_index", "estimate"]
+
+# variance of beta_csyif index parameter
+var_beta_csyif_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_csyif_index", "variance"]
+
+# expected value of csyif_index of abundance predictor
+est_csyif_index_of_abundance <- (SRF_v1_seabird_prey_predictors$csyif_index_of_abundance - mean(SRF_v1_seabird_prey_predictors$csyif_index_of_abundance))/sd(SRF_v1_seabird_prey_predictors$csyif_index_of_abundance)
+
+# variance of csyif index of abundance predictor
+var_csyif_index_of_abundance <- sqrt(diag(csyif_index_of_abundance_cov_matrix_common_years_seabird_prey * (1/sd(SRF_v1_seabird_prey_predictors$csyif_index_of_abundance))^2))
+
+## prey_field index
+# expected value of beta_prey_field index parameter
+est_beta_prey_field_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_prey_field_index", "estimate"]
+
+# variance of beta_prey_field index parameter
+var_beta_prey_field_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_prey_field_index", "variance"]
+
+# expected value of prey_field_index of abundance predictor
+est_prey_field_index_of_abundance <- (SRF_v1_seabird_prey_predictors$prey_field_index_of_abundance - mean(SRF_v1_seabird_prey_predictors$prey_field_index_of_abundance))/sd(SRF_v1_seabird_prey_predictors$prey_field_index_of_abundance)
+
+# variance of prey_field index of abundance predictor
+var_prey_field_index_of_abundance <- sqrt(diag(prey_field_index_of_abundance_cov_matrix_common_years_seabird_prey * (1/sd(SRF_v1_seabird_prey_predictors$prey_field_index_of_abundance))^2))
+
+## prey_field overlap
+# expected value of beta_prey_field parameter
+est_beta_ov_prey_field <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_ov_prey_field", "estimate"]
+
+# variance of beta_prey_field parameter
+var_beta_ov_prey_field <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_ov_prey_field", "variance"]
+
+# expected value of prey_field overlap predictor
+est_prey_field_overlap <- (SRF_v1_seabird_prey_predictors$pianka_o_csyif_prey_field_t - mean(SRF_v1_seabird_prey_predictors$pianka_o_csyif_prey_field_t))/sd(SRF_v1_seabird_prey_predictors$pianka_o_csyif_prey_field_t)
+
+# variance of prey_field index of abundance predictor
+var_prey_field_overlap <- sqrt(diag(pianka_o_csyif_prey_field_cov_matrix_common_years_seabird_prey * (1/sd(SRF_v1_seabird_prey_predictors$pianka_o_csyif_prey_field_t))^2))
+
+
+## sosh index
+# expected value of beta_sosh index parameter
+est_beta_sosh_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_sosh_index", "estimate"]
+
+# variance of beta_sosh index parameter
+var_beta_sosh_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_sosh_index", "variance"]
+
+# expected value of sosh_index of abundance predictor
+est_sosh_index_of_abundance <- (SRF_v1_seabird_prey_predictors$sosh_index_of_abundance - mean(SRF_v1_seabird_prey_predictors$sosh_index_of_abundance))/sd(SRF_v1_seabird_prey_predictors$sosh_index_of_abundance)
+
+# variance of sosh index of abundance predictor
+var_sosh_index_of_abundance <- sqrt(diag(sosh_index_of_abundance_cov_matrix_common_years_seabird_prey * (1/sd(SRF_v1_seabird_prey_predictors$sosh_index_of_abundance))^2))
+
+## sosh overlap
+# expected value of beta_sosh parameter
+est_beta_ov_sosh <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_ov_sosh", "estimate"]
+
+# variance of beta_sosh parameter
+var_beta_ov_sosh <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_ov_sosh", "variance"]
+
+# expected value of sosh overlap predictor
+est_sosh_overlap <- (SRF_v1_seabird_prey_predictors$pianka_o_csyif_sosh_t - mean(SRF_v1_seabird_prey_predictors$pianka_o_csyif_sosh_t))/sd(SRF_v1_seabird_prey_predictors$pianka_o_csyif_sosh_t)
+
+# variance of sosh index of abundance predictor
+var_sosh_overlap <- sqrt(diag(pianka_o_csyif_sosh_cov_matrix_common_years_seabird_prey * (1/sd(SRF_v1_seabird_prey_predictors$pianka_o_csyif_sosh_t))^2))
+
+## comu index
+# expected value of beta_comu index parameter
+est_beta_comu_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_comu_index", "estimate"]
+
+# variance of beta_comu index parameter
+var_beta_comu_index <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_comu_index", "variance"]
+
+# expected value of comu_index of abundance predictor
+est_comu_index_of_abundance <- (SRF_v1_seabird_prey_predictors$comu_index_of_abundance - mean(SRF_v1_seabird_prey_predictors$comu_index_of_abundance))/sd(SRF_v1_seabird_prey_predictors$comu_index_of_abundance)
+
+# variance of comu index of abundance predictor
+var_comu_index_of_abundance <- sqrt(diag(comu_index_of_abundance_cov_matrix_common_years_seabird_prey * (1/sd(SRF_v1_seabird_prey_predictors$comu_index_of_abundance))^2))
+
+## comu overlap
+# expected value of beta_comu parameter
+est_beta_ov_comu <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_ov_comu", "estimate"]
+
+# variance of beta_comu parameter
+var_beta_ov_comu <- SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE[SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE$parameter == "beta_ov_comu", "variance"]
+
+# expected value of comu overlap predictor
+est_comu_overlap <- (SRF_v1_seabird_prey_predictors$pianka_o_csyif_comu_t - mean(SRF_v1_seabird_prey_predictors$pianka_o_csyif_comu_t))/sd(SRF_v1_seabird_prey_predictors$pianka_o_csyif_comu_t)
+
+# variance of comu index of abundance predictor
+var_comu_overlap <- sqrt(diag(pianka_o_csyif_comu_cov_matrix_common_years_seabird_prey * (1/sd(SRF_v1_seabird_prey_predictors$pianka_o_csyif_comu_t))^2))
+
+
+
+#### Calculate and plot total variance by year ####
+SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_pred_var <- var_beta_0 + 
+  var_2_rv(est1 = est_beta_csyif_index, var1 = var_beta_csyif_index,
+           est2 = est_csyif_index_of_abundance, var2 = var_csyif_index_of_abundance) +
+  var_2_rv(est1 = est_beta_prey_field_index, var1 = var_beta_prey_field_index,
+           est2 = est_prey_field_index_of_abundance, var2 = var_prey_field_index_of_abundance) +
+  var_2_rv(est1 = est_beta_sosh_index, var1 = var_beta_sosh_index,
+           est2 = est_sosh_index_of_abundance, var2 = var_sosh_index_of_abundance) +
+  var_2_rv(est1 = est_beta_comu_index, var1 = var_beta_comu_index,
+           est2 = est_comu_index_of_abundance, var2 = var_comu_index_of_abundance) +
+  var_2_rv(est1 = est_beta_ov_prey_field, var1 = var_beta_ov_prey_field,
+           est2 = est_prey_field_overlap, var2 = var_prey_field_overlap) +
+  var_2_rv(est1 = est_beta_ov_sosh, var1 = var_beta_ov_sosh,
+           est2 = est_sosh_overlap, var2 = var_sosh_overlap) +
+  var_2_rv(est1 = est_beta_ov_comu, var1 = var_beta_ov_comu,
+           est2 = est_comu_overlap, var2 = var_comu_overlap)
+
+
+# join the analytical solution with the MLE predictions
+# plan: join the two, then inv.logit to get it back in normal space
+
+SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_pred_var
