@@ -408,7 +408,9 @@ generate_prediction_maps_jsoes_domain_for_fig <- function(ln_d_gt, SE_ln_d_gt, m
           legend.text = element_text(size = 6),
           legend.spacing.y = unit(0.01, 'cm'),
           legend.spacing.x = unit(0.15, 'cm'),
-          plot.title = element_text(size = 8, hjust = 0.5)) +
+          strip.background = element_rect(fill = "white"),
+          strip.text = element_text(size = 12),
+          plot.title = element_text(size = 15, hjust = 0.5)) +
     ggtitle(taxon_name)
   
   
@@ -431,7 +433,7 @@ generate_prediction_maps_jsoes_domain_for_fig <- function(ln_d_gt, SE_ln_d_gt, m
           legend.text = element_text(size = 6),
           legend.spacing.y = unit(0.01, 'cm'),
           legend.spacing.x = unit(0.15, 'cm'),
-          plot.title = element_text(size = 8, hjust = 0.5)) +
+          plot.title = element_text(size = 15, hjust = 0.5)) +
     ggtitle(taxon_name)
   
   return(list(density_predict_map, SE_density_predict_map))
@@ -480,7 +482,9 @@ generate_overlap_map_jsoes_domain <- function(overlap_df, plotting_years){
           legend.text = element_text(size = 6),
           legend.spacing.y = unit(0.01, 'cm'),
           legend.spacing.x = unit(0.15, 'cm'),
-          plot.title = element_text(size = 8, hjust = 0.5)) +
+          strip.background = element_rect(fill = "white"),
+          strip.text = element_text(size = 12),
+          plot.title = element_text(size = 15, hjust = 0.5)) +
     ggtitle("Overlap")
   
   
@@ -544,7 +548,7 @@ csyif_prediction_maps_fig2 <- generate_prediction_maps_jsoes_domain_for_fig(ln_d
                                                                          max_dens = max(csyif$n_per_km),
                                                                          density_units = "Predicted\ndensity\n(N per km)",
                                                                          SE_density_units = "SE [log-\ndensity]\n(N per km)",
-                                                                         taxon_name = "Yearling Interior Fall Chinook")
+                                                                         taxon_name = "Yearlings")
 
 sosh_prediction_maps_fig2 <- generate_prediction_maps_jsoes_domain_for_fig(ln_d_gt = seabird_SDM_report$ln_d_gt_sosh,
                                                                    SE_ln_d_gt = SE_ln_d_gt_sosh,
@@ -553,7 +557,7 @@ sosh_prediction_maps_fig2 <- generate_prediction_maps_jsoes_domain_for_fig(ln_d_
                                                                    max_dens = max(sosh$n_per_km2),
                                                                    density_units = "Predicted\ndensity\n(N per km^2)",
                                                                    SE_density_units = "SE [log-\ndensity]\n(N per km^2)",
-                                                                   taxon_name = "Sooty Shearwater")
+                                                                   taxon_name = "Sooty Shearwaters")
 
 csyif_sosh_overlap_map_fig2 <- generate_overlap_map_jsoes_domain(overlap_df = csyif_sosh_overlap_df, 
                                                                   plotting_years = c(2005, 2011))

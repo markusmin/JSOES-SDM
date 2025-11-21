@@ -411,10 +411,27 @@ hake %>%
   filter(Y > 4905) %>% 
   mutate(survey = "Hake") -> hake_stations
 
+# group the hake data into transects
+max(hake_stations$Y) -> hake_max_Y
+min(hake_stations$Y) -> hake_min_Y
+
+hake_stations %>% 
+  mutate(transect = cut(Y, breaks = seq(hake_min_Y-1, hake_max_Y+1, length.out = 50), labels = 1:49)) -> hake_stations_new
+
+# manually remove some stragglers
+hake_stations_new %>% 
+  filter(!(transect %in% c(4,6,10,42))) %>% 
+  filter(!(transect == 7 & Y == max(subset(hake_stations_new, transect == 7)$Y))) %>% 
+  filter(!(transect == 15 & Y == max(subset(hake_stations_new, transect == 15)$Y))) %>% 
+  filter(!(transect == 17 & Y == min(subset(hake_stations_new, transect == 17)$Y))) %>% 
+  filter(!(transect == 41 & Y == max(subset(hake_stations_new, transect == 41)$Y))) %>% 
+  filter(!(transect == 49 & Y == min(subset(hake_stations_new, transect == 49)$Y))) -> hake_stations_new
+
+
 dplyr::select(jsoes_stations, survey, X, Y) %>% 
   # bind_rows(dplyr::select(bird_stations, survey, X, Y)) %>% 
   bind_rows(dplyr::select(prs_stations, survey, X, Y)) %>% 
-  bind_rows(dplyr::select(hake_stations, survey, X, Y)) -> survey_data
+  bind_rows(dplyr::select(hake_stations_new, survey, X, Y, transect)) -> survey_data
 
 survey_data$survey <- factor(survey_data$survey, levels = c("Hake", "PRS", "JSOES"))
 
@@ -432,9 +449,11 @@ survey_data_sf_proj <- sf::st_transform(survey_data_sf, crs = WGS_CRS)
 as.data.frame(st_coordinates(survey_data_sf_proj)) -> survey_data_coords
 
 survey_data_for_map <- data.frame(Survey = survey_data_sf_proj$survey,
+                                  transect = survey_data_sf_proj$transect,
                                   lon = survey_data_coords[,1],
                                   lat = survey_data_coords[,2])
 
+survey_data_for_map <- arrange(survey_data_for_map, Survey)
 
 
 #### Generate figure ####
@@ -444,7 +463,7 @@ survey_shapes <- c("JSOES" = 18,
 
 survey_sizes <- c("JSOES" = 3.1,
                   "PRS" = 2.3,
-                  "Hake" = 1.6)
+                  "Hake" = 0.01)
 
 # survey_colors <- c("JSOES" = "#440154",
 #                    "PRS" = "#21918c",
@@ -456,7 +475,11 @@ survey_colors <- c("JSOES" = "#a6cee3",
 
 
 fig1 <- CRB_map_plus_inset +
+  geom_line(data = subset(survey_data_for_map, Survey == "Hake"), aes(x = lon, y = lat, group = transect), color = "#b2df8a", linewidth = 0.8, show.legend = FALSE) +
+  # geom_point(data = subset(survey_data_for_map, Survey != "Hake"), aes(x = lon, y = lat, color = Survey, shape = Survey, size = Survey)) +
   geom_point(data = survey_data_for_map, aes(x = lon, y = lat, color = Survey, shape = Survey, size = Survey)) +
+  # scale_color_manual(values = survey_colors, name = "Survey", labels = c("JSOES", "PRS", "Hake")) +
+  # scale_shape_manual(values = survey_shapes, name = "Survey", labels = c("JSOES", "PRS", "Hake")) +
   scale_color_manual(values = survey_colors) +
   scale_shape_manual(values = survey_shapes) +
   scale_size_manual(values = survey_sizes) +

@@ -283,14 +283,17 @@ overlap_long %>%
   left_join(overlap_plot_titles, by = "index") -> overlap_long
 
 overlap_long$name <- factor(overlap_long$name, levels = c("Subyearlings x Prey Field",
-                                                          "Subyearlings x Common Murres",
-                                                          "Subyearlings x Sooty Shearwaters",
-                                                          "Subyearlings x Hake",
                                                           "Yearlings x Prey Field",
+                                                          "Subyearlings x Common Murres",
                                                           "Yearlings x Common Murres",
+                                                          "Subyearlings x Sooty Shearwaters",
                                                           "Yearlings x Sooty Shearwaters",
+                                                          "Subyearlings x Hake",
                                                           "Yearlings x Hake"))
 
+# complete this df so that the plot appropriately connects points
+overlap_long %>% 
+  complete(year = 2001:2021, name) -> overlap_long
 
 
 
@@ -352,34 +355,44 @@ ggsave(here::here("figures", "paper_figures", "fig3_covariates_ts.png"), fig3_co
 chinook_abundance_ts_plot <- ggplot(subset(indices_long, name %in% c("Yearlings", "Subyearlings")), aes(x = year, y = estimate, 
                                               ymin = estimate - 1.96*SE,
                                               ymax = estimate + 1.96*SE)) +
+  geom_errorbar(width = 0.2, color = "gray50") +
   geom_point() +
-  geom_errorbar(width = 0.5) +
   geom_line() +
-  facet_wrap(~name, ncol = 1) +
+  facet_wrap(~name, nrow = 1) +
   scale_y_continuous(labels = c("0.00", "0.50", "1.00", "1.50", "2.00")) +
   ylab("Relative Abundance Index") +
   xlab("Year") +
   theme(plot.background = element_rect(fill = "white"),
         strip.background = element_rect(fill = "white"),
-        # panel.background = element_rect(fill="white", color = "black"),
-        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+        strip.text = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        # these plot margins are to leave space for the panel label
+        plot.margin = unit(c(1.0, 0.2, 0.2, 0.2),"cm"))
 
 # prey field, common murres, sooty shearwaters, and hake on one plot
 
 non_chinook_abundance_ts_plot <- ggplot(subset(indices_long, !(name %in% c("Yearlings", "Subyearlings"))), aes(x = year, y = estimate, 
                                                                                                         ymin = estimate - 1.96*SE,
                                                                                                         ymax = estimate + 1.96*SE)) +
+  geom_errorbar(width = 0.2, color = "gray50") +
   geom_point() +
-  geom_errorbar(width = 0.5) +
   geom_line() +
-  facet_wrap(~name, nrow = 1) +
+  facet_wrap(~name, ncol = 1) +
   ylab("Relative Abundance Index") +
   scale_y_continuous(labels = c("0.00", "0.50", "1.00", "1.50", "2.00")) +
   xlab("Year") +
   theme(plot.background = element_rect(fill = "white"),
         strip.background = element_rect(fill = "white"),
-        # panel.background = element_rect(fill="white", color = "black"),
-        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+        strip.text = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        # these plot margins are to leave space for the panel label
+        plot.margin = unit(c(1.0, 0.2, 0.2, 0.2),"cm"))
 
 
 # overlap on one plot
@@ -387,29 +400,36 @@ non_chinook_abundance_ts_plot <- ggplot(subset(indices_long, !(name %in% c("Year
 interior_overlap_ts_plot <- ggplot(overlap_long, aes(x = year, y = estimate, 
                                             ymin = estimate - 1.96*SE,
                                             ymax = estimate + 1.96*SE)) +
+  geom_errorbar(width = 0.2, color = "gray50") +
   geom_point() +
-  geom_errorbar(width = 0.5) +
   geom_line() +
-  facet_wrap(~name, ncol = 4) +
+  facet_wrap(~name, nrow = 4) +
   ylab("Local Index of Collocation") +
   scale_x_continuous(lim = c(min(indices_long$year), max(indices_long$year))) +
   xlab("Year") +
   theme(plot.background = element_rect(fill = "white"),
         strip.background = element_rect(fill = "white"),
-        strip.text = element_text(size = 7.5),
-        # panel.background = element_rect(fill="white", color = "black"),
-        panel.border = element_rect(colour = "black", fill=NA, linewidth=1))
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        panel.background = element_rect(fill="white", color = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        # these plot margins are to leave space for the panel label
+        plot.margin = unit(c(1.0, 0.2, 0.2, 0.2),"cm"))
 
 fig3_v2_covariates_ts <- ggarrange(NULL,
-                                   non_chinook_abundance_ts_plot,
                                    chinook_abundance_ts_plot,
+                                   non_chinook_abundance_ts_plot,
                                    interior_overlap_ts_plot, 
-                                   widths = c(2, 6, 2, 6),
-                                   heights = c(2.67, 5.33),
+                                   widths = c(3.5, 6.5, 3.5, 6.5),
+                                   heights = c(2.3, 8),
+                                   labels = c("", "(A)", "(B)", "(C)"),
+                                   font.label = list(size = 20, face = "plain"),
+                                   label.x = 0.025, label.y = 0.985,
                                 ncol = 2, nrow = 2)
 
 ggsave(here::here("figures", "paper_figures", "fig3_v2_covariates_ts.png"), fig3_v2_covariates_ts,  
-       height = 10, width = 10)
+       height = 10, width = 12)
 
 
 
