@@ -123,7 +123,8 @@ survey_area_basemap <- ggplot(US_west_coast) +
         legend.title = element_text(size = 14),
         legend.text = element_text(size = 12))
 
-survey_area_basemap_km <- ggplot(US_west_coast_proj_km) +
+# second version for the full domain
+survey_area_basemap_km_PRS_PWCC <- ggplot(US_west_coast_proj_km) +
   geom_sf() +
   geom_sf(data = BC_coast_proj_km) + 
   ylab("Latitude")+
@@ -269,7 +270,7 @@ SST_sf_proj_km_2000$dist_shore <- as.numeric(st_distance(SST_sf_proj_km_2000, US
 # 2) Northern edge limited to the extent of the PRS survey
 
 # visualize the overlap
-survey_area_basemap_km +
+survey_area_basemap_km_PRS_PWCC +
   geom_point(data = rf, aes(x = X, y = Y, color = survey))
 
 ggplot(subset(rf, survey == "PRS"), aes(x = X, y = Y)) +
@@ -278,7 +279,7 @@ ggplot(subset(rf, survey == "PRS"), aes(x = X, y = Y)) +
 
 # 2011 extends much further south than the other years
 
-survey_area_basemap_km +
+survey_area_basemap_km_PRS_PWCC +
   geom_point(data = rf, aes(x = X, y = Y, color = as.factor(year)))
 
 # Missing 2010 and 2012 data
@@ -373,7 +374,7 @@ ggplot(survey_domain_jsoes) +
 # 2) Limited to the extent of the PRS survey
 
 # ok, let's try cutting off by the 2016 PRS survey. Looks like the typical survey coverage for PRS.
-survey_area_basemap_km +
+survey_area_basemap_km_PRS_PWCC +
   geom_point(data = subset(rf, year == 2016), aes(x = X, y = Y))
 
 
@@ -438,10 +439,10 @@ survey_domain_PRS %>%
 st_concave_hull(st_union(survey_domain_PRS), ratio = 0.1) -> survey_domain_PRS_polygon
 
 # let's compare our survey domains
-survey_area_basemap_km +
+survey_area_basemap_km_PRS_PWCC +
   geom_sf(data = survey_domain_jsoes_polygon, fill = "blue", alpha = 0.2)
 
-survey_area_basemap_km +
+survey_area_basemap_km_PRS_PWCC +
   geom_sf(data = survey_domain_PRS_polygon, fill = "blue", alpha = 0.2)
 
 ### add covariates to both survey domains ###
@@ -521,7 +522,7 @@ survey_predict_grid_PRS %>%
          dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid_PRS
 
 # check that we don't have any points with missing data
-survey_area_basemap_km +
+survey_area_basemap_km_PRS_PWCC +
   geom_point(data = subset(survey_predict_grid_PRS, is.na(SST)), aes(x = X, y = Y))
 
 
@@ -579,7 +580,7 @@ survey_predict_grid_PRS %>%
          dist_shore_scaled = as.numeric(scale(dist_shore))) -> survey_predict_grid_PRS
 
 # check that we don't have any points with missing data
-survey_area_basemap_km +
+survey_area_basemap_km_PRS_PWCC +
   geom_point(data = subset(survey_predict_grid_PRS, is.na(SST)), aes(x = X, y = Y))
 
 # Ok - now we are finally ready to create our mesh!
@@ -731,7 +732,7 @@ dev.off()
 fm_as_sfc(inla_mesh_cutoff15_jsoes_domain) %>% 
    st_set_crs(st_crs(survey_domain_jsoes_cov_rf_years_grid)) -> inla_mesh_cutoff15_jsoes_domain_sf
 
-rockfish_mesh_plus_points_plot <- survey_area_basemap_km +
+rockfish_mesh_plus_points_plot <- survey_area_basemap_km_PRS_PWCC +
   geom_sf(data = inla_mesh_cutoff15_jsoes_domain_sf, fill = NA) +
   geom_sf(data = survey_domain_jsoes_cov_rf_years_grid) +
   geom_point(data = rf, aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
@@ -742,7 +743,7 @@ ggsave(here::here("two_stage_models", "figures", "rockfish_mesh_plus_points_plot
 # build this up sequentially for presentation
 
 # survey area and mesh and samples
-rockfish_samples_mesh_map <- survey_area_basemap_km +
+rockfish_samples_mesh_map <- survey_area_basemap_km_PRS_PWCC +
   geom_sf(data = inla_mesh_cutoff15_jsoes_domain_sf, fill = NA) +
   # geom_sf(data = survey_domain_cov_grid) +
   # geom_point(data = subset(rf, Y >= 4800), aes(x = X, y = Y), color = "white",fill = "red", shape = 24, size = 3)
