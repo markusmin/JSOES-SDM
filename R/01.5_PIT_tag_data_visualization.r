@@ -9,6 +9,7 @@ library(here)
 # load the SAR data - the output of 01_PIT_tag_data.Rmd
 SAR_data <- read.csv(here::here("model_inputs", "chinook_det_hist.csv"))
 
+
 # inspect distribution of outmigration timing
 
 SAR_data %>% 
@@ -150,7 +151,145 @@ ggsave(here::here("figures", "PIT_tag_data", "SRF_detections_plot.png"), SRF_det
 
 
 
+#### Make table 1 for paper ####
+
+# load the SAR data
+SAR_data <- read.csv(here::here("model_inputs", "chinook_det_hist.csv"))
+
+# inspect distribution of outmigration timing
+
+SAR_data %>% 
+  mutate(BON_juv_det_date = substr(BON_juv_det_time, 1, 10)) %>% 
+  mutate(BON_juv_det_date = ymd(BON_juv_det_date)) %>% 
+  mutate(outmigration_date = yday(BON_juv_det_date)) -> SAR_data
+
+#### Snake River Fall Chinook
+
+# extract Snake River Fall Chinook from SAR data
+SRF <- subset(SAR_data, run_name == "Fall" & group == "Snake River")
+
+#### subset by outmigration date
+hist(SRF$outmigration_date)
+summary(SRF$outmigration_date)
+
+# restrict the analysis to fish that could have theoretically been caught in the June JSOES survey.
+# we will call this April 15 - June 15 (for now!)
+# day 105 is April 15 in a non-leap year and day 167 is June 15 in a leap year
+# SRF_subset <- filter(SRF, outmigration_date >= 105 & outmigration_date <= 167)
+
+# let's just have a final cutoff - based on the fact that fish can hang out
+# off the coast for a while, it's less justified to have a front-end cutoff date
+SRF_subset <- filter(SRF, outmigration_date <= 167)
+nrow(SRF_subset)/nrow(SRF)
+# this leaves us with 54% of our initial dataset
 
 
+#### Join with the transport data
 
+transport_data_export <- read.csv(here::here("model_inputs", "chinook_transport.csv"))
+
+# join the juvenile transport data with the SAR data
+SRF_subset %>% 
+  left_join(transport_data_export, join_by(tag_code == tag_id)) -> SRF_subset
+
+SRF_subset$transport[is.na(SRF_subset$transport)] <- 0
+
+# inspect number of transported fish
+table(SRF_subset$transport)
+
+
+#### Drop the few natural origin fish
+
+# fish with rear type U or H are hatchery fish
+SRF_subset %>% 
+  mutate(rear_numeric = ifelse(rear_type_code %in% c("H", "U"), 1, 0)) -> SRF_subset
+
+# ok, so they're all hatchery. That's perhaps not surprising, given what we see in the JSOES survey is basically all hatchery
+# Let's only keep hatchery fish
+SRF_subset <- subset(SRF_subset, rear_type_code != "W")
+
+
+#### Upper Columbia Summer/Fall Chinook
+
+# extract Snake River Fall Chinook from SAR data
+UCSF <- subset(SAR_data, run_name %in% c("Summer", "Fall") & group == "Upper Columbia")
+
+#### subset by outmigration date
+hist(UCSF$outmigration_date)
+summary(UCSF$outmigration_date)
+
+# restrict the analysis to fish that could have theoretically been caught in the June JSOES survey.
+# we will call this April 15 - June 15 (for now!)
+# day 105 is April 15 in a non-leap year and day 167 is June 15 in a leap year
+# UCSF_subset <- filter(UCSF, outmigration_date >= 105 & outmigration_date <= 167)
+
+# let's just have a final cutoff - based on the fact that fish can hang out
+# off the coast for a while, it's less justified to have a front-end cutoff date
+UCSF_subset <- filter(UCSF, outmigration_date <= 167)
+nrow(UCSF_subset)/nrow(UCSF)
+# this leaves us with 72% of our initial dataset
+
+#### Drop the few natural origin fish (28 of ~97,500)
+
+table(UCSF_subset$rear_type_code)
+
+# fish with rear type U or H are hatchery fish
+UCSF_subset %>% 
+  mutate(rear_numeric = ifelse(rear_type_code %in% c("H", "U"), 1, 0)) -> UCSF_subset
+
+# ok, so they're all hatchery. That's perhaps not surprising, given what we see in the JSOES survey is basically all hatchery
+# Let's only keep hatchery fish
+UCSF_subset <- subset(UCSF_subset, rear_type_code != "W")
+
+
+#### Reformat for table 1 for the paper
+
+SRF_subset %>% 
+  bind_rows(UCSF_subset) -> SRF_UCSF_subset
+
+as.data.frame(table(SRF_subset$run_year)) %>% 
+  dplyr::rename(run_year = Var1, juv_det = Freq) %>% 
+  mutate(stock_group = "Snake River Fall") -> SRF_subset_juv_table
+
+as.data.frame(table(subset(SRF_subset, adult_det == 1)$run_year)) %>% 
+  dplyr::rename(run_year = Var1, adult_det = Freq) %>% 
+  mutate(stock_group = "Snake River Fall") -> SRF_subset_adult_table
+
+SRF_subset_juv_table %>% 
+  left_join(SRF_subset_adult_table, by = c("run_year", "stock_group")) %>% 
+  mutate(adult_det = ifelse(is.na(adult_det), 0, adult_det)) -> SRF_subset_table
+
+as.data.frame(table(UCSF_subset$run_year)) %>% 
+  dplyr::rename(run_year = Var1, juv_det = Freq) %>% 
+  mutate(stock_group = "Upper Columbia Summer/Fall") -> UCSF_subset_juv_table
+
+as.data.frame(table(subset(UCSF_subset, adult_det == 1)$run_year)) %>% 
+  dplyr::rename(run_year = Var1, adult_det = Freq) %>% 
+  mutate(stock_group = "Upper Columbia Summer/Fall") -> UCSF_subset_adult_table
+
+UCSF_subset_juv_table %>% 
+  left_join(UCSF_subset_adult_table, by = c("run_year", "stock_group")) %>% 
+  mutate(adult_det = ifelse(is.na(adult_det), 0, adult_det)) -> UCSF_subset_table
+
+SRF_subset_table %>% 
+  mutate(SAR = round(adult_det/juv_det,3)) %>% 
+  mutate("Snake River Fall Run" = paste0(adult_det, "/", juv_det, " (", SAR, ")")) -> SRF_subset_table
+
+UCSF_subset_table %>% 
+  mutate(SAR = round(adult_det/juv_det,3)) %>% 
+  mutate("Upper Columbia Summer/Fall Run" = paste0(adult_det, "/", juv_det, " (", SAR, ")")) -> UCSF_subset_table
+
+# join them all together
+UCSF_subset_table %>% 
+  dplyr::select(run_year, "Upper Columbia Summer/Fall Run") -> UCSF_for_join
+
+SRF_subset_table %>% 
+  dplyr::select(run_year, "Snake River Fall Run") -> SRF_for_join
+
+SRF_for_join %>% 
+  left_join(UCSF_for_join, by = "run_year") %>% 
+  mutate(run_year = as.numeric(as.character(run_year))) %>% 
+  filter(run_year >= 2001 & run_year <= 2021) -> PIT_tag_table
+
+write.csv(PIT_tag_table, here::here("figures", "paper_figures", "SAR_data_table.csv"), row.names = FALSE)
 
