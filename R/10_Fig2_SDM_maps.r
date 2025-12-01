@@ -697,7 +697,7 @@ ggsave(here::here("figures", "paper_figures", "SDM_predict_maps", "sosh_predict_
 comu_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = seabird_SDM_report$ln_d_gt_comu,
                                                                        SE_ln_d_gt = SE_ln_d_gt_comu,
                                                                        taxon_name = "Common Murres",
-                                                                       model_years = min(comu$year):max(comu$year),
+                                                                       model_years = unique(comu$year),
                                                                        max_dens = max(comu$n_per_km2),
                                                                        density_units = "Predicted\ndensity\n(N per km^2)",
                                                                        SE_density_units = "SE [log-\ndensity]\n(N per km^2)")
@@ -710,11 +710,11 @@ ggsave(here::here("figures", "paper_figures", "SDM_predict_maps", "comu_predict_
        height = 8, width = 10)
 
 ### Hake
-hake_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = seabird_SDM_report$ln_d_gt_hake,
+hake_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = hake_SDM_report$ln_d_gt_hake,
                                                                        SE_ln_d_gt = SE_ln_d_gt_hake,
                                                                        taxon_name = "Pacific Hake",
                                                                        model_years = min(hake$year):max(hake$year),
-                                                                       max_dens = max(hake$n_per_km2),
+                                                                       max_dens = max(hake$NASC),
                                                                        density_units = "Predicted\ndensity\n(NASC)",
                                                                        SE_density_units = "SE [log-\ndensity]\n(NASC)")
 
@@ -726,11 +726,11 @@ ggsave(here::here("figures", "paper_figures", "SDM_predict_maps", "hake_predict_
        height = 8, width = 10)
 
 ### Non-Cancer Crab Larvae
-non_cancer_crab_larvae_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = seabird_SDM_report$ln_d_gt_non_cancer_crab_larvae,
+non_cancer_crab_larvae_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = prey_field_SDM_report$ln_d_gt_non_cancer_crab_larvae,
                                                                                          SE_ln_d_gt = SE_ln_d_gt_non_cancer_crab_larvae,
                                                                                          taxon_name = "Non-Cancer Crab Larvae",
-                                                                                         model_years = min(non_cancer_crab_larvae$year):max(non_cancer_crab_larvae$year),
-                                                                                         max_dens = max(non_cancer_crab_larvae$n_per_km2),
+                                                                                         model_years = min(jsoes_bongo_non_cancer_crab_larvae$year):max(jsoes_bongo_non_cancer_crab_larvae$year),
+                                                                                         max_dens = max(jsoes_bongo_non_cancer_crab_larvae$total_sum_of_density_number_m3),
                                                                                          density_units = "Predicted\ndensity\n(N/m^3)",
                                                                                          SE_density_units = "SE [log-\ndensity]\n(N/m^3)")
 
@@ -742,11 +742,11 @@ ggsave(here::here("figures", "paper_figures", "SDM_predict_maps", "non_cancer_cr
        height = 8, width = 10)
 
 ### Cancer Crab Larvae
-cancer_crab_larvae_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = seabird_SDM_report$ln_d_gt_cancer_crab_larvae,
+cancer_crab_larvae_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = prey_field_SDM_report$ln_d_gt_cancer_crab_larvae,
                                                                                      SE_ln_d_gt = SE_ln_d_gt_cancer_crab_larvae,
                                                                                      taxon_name = "Cancer Crab Larvae",
-                                                                                     model_years = min(cancer_crab_larvae$year):max(cancer_crab_larvae$year),
-                                                                                     max_dens = max(cancer_crab_larvae$n_per_km2),
+                                                                                     model_years = min(jsoes_bongo_cancer_crab_larvae$year):max(jsoes_bongo_cancer_crab_larvae$year),
+                                                                                     max_dens = max(jsoes_bongo_cancer_crab_larvae$total_sum_of_density_number_m3),
                                                                                      density_units = "Predicted\ndensity\n(N/m^3)",
                                                                                      SE_density_units = "SE [log-\ndensity]\n(N/m^3)")
 
@@ -758,11 +758,11 @@ ggsave(here::here("figures", "paper_figures", "SDM_predict_maps", "cancer_crab_l
        height = 8, width = 10)
 
 ### Shrimp Larvae
-shrimp_larvae_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = seabird_SDM_report$ln_d_gt_shrimp_larvae,
+shrimp_larvae_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = prey_field_SDM_report$ln_d_gt_shrimp_larvae,
                                                                                 SE_ln_d_gt = SE_ln_d_gt_shrimp_larvae,
                                                                                 taxon_name = "Shrimp Larvae",
-                                                                                model_years = min(shrimp_larvae$year):max(shrimp_larvae$year),
-                                                                                max_dens = max(shrimp_larvae$n_per_km2),
+                                                                                model_years = min(jsoes_bongo_shrimp_larvae$year):max(jsoes_bongo_shrimp_larvae$year),
+                                                                                max_dens = max(jsoes_bongo_shrimp_larvae$total_sum_of_density_number_m3),
                                                                                 density_units = "Predicted\ndensity\n(N/m^3)",
                                                                                 SE_density_units = "SE [log-\ndensity]\n(N/m^3)")
 
@@ -774,11 +774,11 @@ ggsave(here::here("figures", "paper_figures", "SDM_predict_maps", "shrimp_larvae
        height = 8, width = 10)
 
 ### Hyperiid Amphipods
-hyperiid_amphipod_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = seabird_SDM_report$ln_d_gt_hyperiid_amphipod,
-                                                                                    SE_ln_d_gt = SE_ln_d_gt_hyperiid_amphipod,
+hyperiid_amphipod_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = prey_field_SDM_report$ln_d_gt_hyperiid_amphipod,
+                                                                                    SE_ln_d_gt = SE_ln_d_gt_hyperiid_amphipods,
                                                                                     taxon_name = "Hyperiid Amphipods",
-                                                                                    model_years = min(hyperiid_amphipod$year):max(hyperiid_amphipod$year),
-                                                                                    max_dens = max(hyperiid_amphipod$n_per_km2),
+                                                                                    model_years = min(jsoes_bongo_hyperiid_amphipods$year):max(jsoes_bongo_hyperiid_amphipods$year),
+                                                                                    max_dens = max(jsoes_bongo_hyperiid_amphipods$total_sum_of_density_number_m3),
                                                                                     density_units = "Predicted\ndensity\n(N/m^3)",
                                                                                     SE_density_units = "SE [log-\ndensity]\n(N/m^3)")
 
@@ -790,11 +790,11 @@ ggsave(here::here("figures", "paper_figures", "SDM_predict_maps", "hyperiid_amph
        height = 8, width = 10)
 
 ### YOY Rockfishes
-rf_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = seabird_SDM_report$ln_d_gt_rf,
+rf_prediction_maps <- generate_prediction_maps_jsoes_domain_for_supp(ln_d_gt = prey_field_SDM_report$ln_d_gt_rf,
                                                                      SE_ln_d_gt = SE_ln_d_gt_rf,
                                                                      taxon_name = "YOY Rockfishes",
-                                                                     model_years = min(rf$year):max(rf$year),
-                                                                     max_dens = max(rf$n_per_km2),
+                                                                     model_years = unique(rf$year),
+                                                                     max_dens = max(rf$total),
                                                                      density_units = "Predicted\ndensity\n(N/km)",
                                                                      SE_density_units = "SE [log-\ndensity]\n(N/km)")
 
