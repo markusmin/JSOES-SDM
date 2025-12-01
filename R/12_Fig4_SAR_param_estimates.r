@@ -400,8 +400,211 @@ ggsave(here::here("figures", "paper_figures", "parameter_estimate_plots", "fig4_
        height = 12, width = 12)
 
 
-### New version with labels for each panel
+#### Plot the other parameters: salmon abundance, outmigration timing, transport ####
 
+# extract the effect of the abundance indices from each of these
+#### Plot effect of CSYIF index ####
+subset(SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE, parameter == "beta_csyif_index") %>% 
+  mutate(model = "Snake River Fall\nSeabirds x Yearlings") -> SRF_seabirds_csyif_index
+subset(SRF_06_3_hake_prey_csyif_only_SAR_SEcov_FE, parameter == "beta_csyif_index") %>% 
+  mutate(model = "Snake River Fall\nHake x Yearlings") -> SRF_hake_csyif_index
+subset(UCSF_06_2_seabird_prey_csyif_only_SAR_SEcov_no_transport_FE, parameter == "beta_csyif_index") %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nSeabirds x Yearlings") -> UCSF_seabirds_csyif_index
+subset(UCSF_06_3_hake_prey_csyif_only_SAR_SEcov_no_transport_FE, parameter == "beta_csyif_index") %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nHake x Yearlings") -> UCSF_hake_csyif_index
+
+SRF_seabirds_csyif_index %>% 
+  bind_rows(SRF_hake_csyif_index) %>% 
+  bind_rows(UCSF_seabirds_csyif_index) %>% 
+  bind_rows(UCSF_hake_csyif_index) -> csyif_index_param_estimates
+
+
+beta_csyif_param_estimates_plot <- ggplot(csyif_index_param_estimates, aes(x = model, y = estimate,
+                                     ymax = upper, ymin = lower)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(size = 5) +
+  geom_errorbar(width = 0.2) +
+  # scale_color_manual(values = significance_colors) +
+  guides(color = guide_legend(position = "inside")) +
+  theme(legend.position.inside = c(0.1, 0.1)) +
+  xlab("Effect of Yearling Interior Fall Chinook Index of Abundance") +
+  ylab("Parameter Estimate") +
+  theme(panel.grid.major = element_line(color = "gray90"),
+        panel.background = element_rect(fill = "white", color = NA),
+        panel.border = element_rect(color = NA, fill=NA, linewidth=0.4),
+        legend.key.height = unit(1.25, "cm"),
+        legend.key.width = unit(1.25, "cm"),
+        legend.title = element_text(size = 25),
+        legend.text = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(size = 12),
+        strip.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_text(size = 20, margin = margin(t = 10)),
+        axis.title.y = element_text(size = 20, margin = margin(r = 10)),
+        # these plot margins are to leave space for the population name on the big figure
+        plot.margin = unit(c(0.2, 0.2, 0.2, 0.2),"cm")) +
+  coord_flip()
+
+ggsave(here::here("figures", "paper_figures", "beta_csyif_param_estimates_plot.png"), beta_csyif_param_estimates_plot,  
+       height = 8, width = 6)
+
+#### Plot effect of CSSIF index ####
+subset(SRF_06_2_seabird_prey_cssif_only_SAR_SEcov_FE, parameter == "beta_cssif_index") %>% 
+  mutate(model = "Snake River Fall\nSeabirds x Subyearlings") -> SRF_seabirds_cssif_index
+subset(SRF_06_3_hake_prey_cssif_only_SAR_SEcov_FE, parameter == "beta_cssif_index") %>% 
+  mutate(model = "Snake River Fall\nHake x Subyearlings") -> SRF_hake_cssif_index
+subset(UCSF_06_2_seabird_prey_cssif_only_SAR_SEcov_no_transport_FE, parameter == "beta_cssif_index") %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nSeabirds x Subyearlings") -> UCSF_seabirds_cssif_index
+subset(UCSF_06_3_hake_prey_cssif_only_SAR_SEcov_no_transport_FE, parameter == "beta_cssif_index") %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nHake x Subyearlings") -> UCSF_hake_cssif_index
+
+SRF_seabirds_cssif_index %>% 
+  bind_rows(SRF_hake_cssif_index) %>% 
+  bind_rows(UCSF_seabirds_cssif_index) %>% 
+  bind_rows(UCSF_hake_cssif_index) -> cssif_index_param_estimates
+
+
+beta_cssif_param_estimates_plot <- ggplot(cssif_index_param_estimates, aes(x = model, y = estimate,
+                                                                           ymax = upper, ymin = lower)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(size = 5) +
+  geom_errorbar(width = 0.2) +
+  # scale_color_manual(values = significance_colors) +
+  guides(color = guide_legend(position = "inside")) +
+  theme(legend.position.inside = c(0.1, 0.1)) +
+  xlab("Effect of Subyearling Interior Fall Chinook Index of Abundance") +
+  ylab("Parameter Estimate") +
+  theme(panel.grid.major = element_line(color = "gray90"),
+        panel.background = element_rect(fill = "white", color = NA),
+        panel.border = element_rect(color = NA, fill=NA, linewidth=0.4),
+        legend.key.height = unit(1.25, "cm"),
+        legend.key.width = unit(1.25, "cm"),
+        legend.title = element_text(size = 25),
+        legend.text = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(size = 12),
+        strip.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_text(size = 20, margin = margin(t = 10)),
+        axis.title.y = element_text(size = 20, margin = margin(r = 10)),
+        # these plot margins are to leave space for the population name on the big figure
+        plot.margin = unit(c(0.2, 0.2, 0.2, 0.2),"cm")) +
+  coord_flip()
+
+ggsave(here::here("figures", "paper_figures", "beta_cssif_param_estimates_plot.png"), beta_cssif_param_estimates_plot,  
+       height = 8, width = 6)
+
+#### Plot effect of Transport ####
+subset(SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE, parameter == "beta_transport") %>% 
+  mutate(model = "Snake River Fall\nSeabirds x Yearlings") -> SRF_seabirds_csyif_transport
+subset(SRF_06_3_hake_prey_csyif_only_SAR_SEcov_FE, parameter == "beta_transport") %>% 
+  mutate(model = "Snake River Fall\nHake x Yearlings") -> SRF_hake_csyif_transport
+subset(SRF_06_2_seabird_prey_cssif_only_SAR_SEcov_FE, parameter == "beta_transport") %>% 
+  mutate(model = "Snake River Fall\nSeabirds x Subyearlings") -> SRF_seabirds_cssif_transport
+subset(SRF_06_3_hake_prey_cssif_only_SAR_SEcov_FE, parameter == "beta_transport") %>% 
+  mutate(model = "Snake River Fall\nHake x Subyearlings") -> SRF_hake_cssif_transport
+
+
+SRF_seabirds_csyif_transport %>% 
+  bind_rows(SRF_hake_csyif_transport) %>% 
+  bind_rows(SRF_seabirds_cssif_transport) %>% 
+  bind_rows(SRF_hake_cssif_transport) -> transport_param_estimates
+
+
+beta_transport_param_estimates_plot <- ggplot(transport_param_estimates, aes(x = model, y = estimate,
+                                                                           ymax = upper, ymin = lower)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(size = 5) +
+  geom_errorbar(width = 0.2) +
+  # scale_color_manual(values = significance_colors) +
+  guides(color = guide_legend(position = "inside")) +
+  theme(legend.position.inside = c(0.1, 0.1)) +
+  xlab("Effect of Juvenile Transport") +
+  ylab("Parameter Estimate") +
+  theme(panel.grid.major = element_line(color = "gray90"),
+        panel.background = element_rect(fill = "white", color = NA),
+        panel.border = element_rect(color = NA, fill=NA, linewidth=0.4),
+        legend.key.height = unit(1.25, "cm"),
+        legend.key.width = unit(1.25, "cm"),
+        legend.title = element_text(size = 25),
+        legend.text = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(size = 12),
+        strip.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_text(size = 20, margin = margin(t = 10)),
+        axis.title.y = element_text(size = 20, margin = margin(r = 10)),
+        # these plot margins are to leave space for the population name on the big figure
+        plot.margin = unit(c(0.2, 0.2, 0.2, 0.2),"cm")) +
+  coord_flip()
+
+ggsave(here::here("figures", "paper_figures", "beta_transport_param_estimates_plot.png"), beta_transport_param_estimates_plot,  
+       height = 8, width = 6)
+
+#### Plot effect of outmigration date ####
+
+subset(SRF_06_2_seabird_prey_csyif_only_SAR_SEcov_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Snake River Fall\nSeabirds x Yearlings") -> SRF_seabirds_csyif_outmigration
+subset(SRF_06_3_hake_prey_csyif_only_SAR_SEcov_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Snake River Fall\nHake x Yearlings") -> SRF_hake_csyif_outmigration
+subset(SRF_06_2_seabird_prey_cssif_only_SAR_SEcov_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Snake River Fall\nSeabirds x Subyearlings") -> SRF_seabirds_cssif_outmigration
+subset(SRF_06_3_hake_prey_cssif_only_SAR_SEcov_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Snake River Fall\nHake x Subyearlings") -> SRF_hake_cssif_outmigration
+
+subset(UCSF_06_2_seabird_prey_csyif_only_SAR_SEcov_no_transport_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nSeabirds x Yearlings") -> UCSF_seabirds_csyif_outmigration
+subset(UCSF_06_3_hake_prey_csyif_only_SAR_SEcov_no_transport_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nHake x Yearlings") -> UCSF_hake_csyif_outmigration
+subset(UCSF_06_2_seabird_prey_cssif_only_SAR_SEcov_no_transport_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nSeabirds x Subyearlings") -> UCSF_seabirds_cssif_outmigration
+subset(UCSF_06_3_hake_prey_cssif_only_SAR_SEcov_no_transport_FE, parameter %in% c("beta_outmigration", "beta_outmigration2")) %>% 
+  mutate(model = "Upper Columbia Summer/Fall\nHake x Subyearlings") -> UCSF_hake_cssif_outmigration
+
+
+SRF_seabirds_csyif_outmigration %>% 
+  bind_rows(SRF_hake_csyif_outmigration) %>% 
+  bind_rows(SRF_seabirds_cssif_outmigration) %>% 
+  bind_rows(SRF_hake_cssif_outmigration) %>% 
+  bind_rows(UCSF_seabirds_csyif_outmigration) %>% 
+  bind_rows(UCSF_hake_csyif_outmigration) %>% 
+  bind_rows(UCSF_seabirds_cssif_outmigration) %>% 
+  bind_rows(UCSF_hake_cssif_outmigration) %>% 
+  mutate(parameter = ifelse(parameter == "beta_outmigration", "Outmigration Date",
+                            "Outmigration Date^2")) -> outmigration_param_estimates
+
+
+beta_outmigration_param_estimates_plot <- ggplot(outmigration_param_estimates, aes(x = model, y = estimate,
+                                                                             ymax = upper, ymin = lower)) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(size = 5) +
+  geom_errorbar(width = 0.2) +
+  # scale_color_manual(values = significance_colors) +
+  guides(color = guide_legend(position = "inside")) +
+  theme(legend.position.inside = c(0.1, 0.1)) +
+  xlab("Effect of Outmigration Date") +
+  ylab("Parameter Estimate") +
+  facet_wrap(~parameter, ncol = 2) +
+  theme(panel.grid.major = element_line(color = "gray90"),
+        panel.background = element_rect(fill = "white", color = NA),
+        panel.border = element_rect(color = NA, fill=NA, linewidth=0.4),
+        legend.key.height = unit(1.25, "cm"),
+        legend.key.width = unit(1.25, "cm"),
+        legend.title = element_text(size = 25),
+        legend.text = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(size = 12),
+        strip.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 20),
+        axis.title.x = element_text(size = 20, margin = margin(t = 10)),
+        axis.title.y = element_text(size = 20, margin = margin(r = 10)),
+        # these plot margins are to leave space for the population name on the big figure
+        plot.margin = unit(c(0.2, 0.2, 0.2, 0.2),"cm")) +
+  coord_flip()
+
+ggsave(here::here("figures", "paper_figures", "beta_outmigration_param_estimates_plot.png"), beta_outmigration_param_estimates_plot,  
+       height = 16, width = 10)
 
 #### Plot model fit to data ####
 
