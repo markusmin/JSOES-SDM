@@ -137,8 +137,7 @@ A_gs_birds = fm_evaluator( birds_inla_mesh_cutoff15, loc=st_coordinates(survey_d
 spatial_list_birds <- make_anisotropy_spde( birds_inla_mesh_cutoff15 )
 ```
 
-
-# Fit SDM
+# Data visualizations
 
 Export the mesh and projection grid for the supplemental figures
 ```{r export_mesh_figures}
@@ -155,6 +154,23 @@ JSOES_seabirds_mesh_plot <- survey_area_basemap_km +
 
 ggsave(here::here("figures", "paper_figures", "mesh_figures", "JSOES_seabirds_mesh_plot.png"), JSOES_seabirds_mesh_plot,  height = 8, width = 4)
 ```
+
+Export plots of survey data
+```{r plot_distribtion}
+#### JSOES Seabird Observations ####
+sosh_dist_plot <- plot_distribution_jsoes_seabirds(data = sosh, taxon_name = "Sooty Shearwaters")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "sosh_dist_plot.png"), sosh_dist_plot,  
+       height = 10, width = 10)
+
+comu_dist_plot <- plot_distribution_jsoes_seabirds(data = comu, taxon_name = "Common Murres")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "comu_dist_plot.png"), comu_dist_plot,  
+       height = 10, width = 10)
+```
+
+
+# Fit SDM
 
 ```{r SDM_inputs_prep}
 # create covariate grids for projections

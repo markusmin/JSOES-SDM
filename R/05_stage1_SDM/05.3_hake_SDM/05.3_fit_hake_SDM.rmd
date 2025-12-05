@@ -250,10 +250,8 @@ survey_domain_cov %>%
   dplyr::select(geometry) -> survey_domain_cov_grid
 ```
 
+# Data visualization
 
-
-
-# Fit SDM
 Export the mesh and projection grid for the supplemental figures
 ```{r export_mesh_figures}
 #### Hake survey ####
@@ -270,6 +268,18 @@ hake_mesh_plot <- survey_area_basemap_km_PRS_PWCC +
 ggsave(here::here("figures", "paper_figures", "mesh_figures", "hake_mesh_plot.png"), hake_mesh_plot,  height = 16, width = 4)
 ```
 
+Plot distribution of hake
+```{r export_mesh_figures}
+#### Hake survey ####
+hake_dist_plot <- plot_distribution_hake(data = hake)
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "hake_dist_plot.png"), hake_dist_plot,  
+       height = 10, width = 10)
+```
+
+
+
+# Fit SDM
 
 ```{r SDM_inputs_prep}
 # create covariate grids for projections
