@@ -520,7 +520,7 @@ A_gs_rf = fm_evaluator( inla_mesh_cutoff15_jsoes_domain, loc=st_coordinates(surv
 spatial_list_rf <- make_anisotropy_spde( inla_mesh_cutoff15_jsoes_domain )
 ```
 
-# Fit SDM
+# Data visualizations
 
 Export the mesh and projection grid for the supplemental figures
 ```{r export_mesh_figures}
@@ -563,8 +563,49 @@ ggsave(here::here("figures", "paper_figures", "mesh_figures", "PRS_PWCC_mesh_plo
 
 ```
 
+Export plots of survey data
+```{r plot_distribtion}
+#### JSOES Midwater Trawls ####
+csyif_june_dist_plot <- plot_distribution(data = csyif, taxon_name = "Yearling Interior Fall Chinook")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "csyif_june_dist_plot.png"), csyif_june_dist_plot,  
+       height = 10, width = 12)
+
+cssif_june_dist_plot <- plot_distribution(data = cssif, taxon_name = "Subyearling Interior Fall Chinook")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "cssif_june_dist_plot.png"), cssif_june_dist_plot,  
+       height = 10, width = 12)
+
+#### JSOES Bongo Tows ####
+non_cancer_crab_larvae_june_dist_plot <- plot_distribution_jsoes_bongo(data = jsoes_bongo_non_cancer_crab_larvae, taxon_name = "Non-Cancer Crab Larvae")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "non_cancer_crab_larvae_june_dist_plot.png"), non_cancer_crab_larvae_june_dist_plot,  
+       height = 10, width = 12)
+
+cancer_crab_larvae_june_dist_plot <- plot_distribution_jsoes_bongo(data = jsoes_bongo_cancer_crab_larvae, taxon_name = "Cancer Crab Larvae")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "cancer_crab_larvae_june_dist_plot.png"), cancer_crab_larvae_june_dist_plot,  
+       height = 10, width = 12)
+
+shrimp_larvae_june_dist_plot <- plot_distribution_jsoes_bongo(data = jsoes_bongo_shrimp_larvae, taxon_name = "Shrimp Larvae")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "shrimp_larvae_june_dist_plot.png"), shrimp_larvae_june_dist_plot,  
+       height = 10, width = 12)
+
+hyperiid_amphipod_june_dist_plot <- plot_distribution_jsoes_bongo(data = jsoes_bongo_hyperiid_amphipods, taxon_name = "Hyperiid Amphipods")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "hyperiid_amphipod_june_dist_plot.png"), hyperiid_amphipod_june_dist_plot,  
+       height = 10, width = 12)
+
+#### PRS/PWCCC ####
+rf_dist_plot <- plot_distribution_PRS_PWCC(data = rf, taxon_name = "Sebastes spp.")
+
+ggsave(here::here("figures", "paper_figures", "survey_data_plots",  "rf_dist_plot.png"), rf_dist_plot,  
+       height = 10, width = 12)
+```
 
 
+# Fit SDM
 
 ```{r SDM_inputs_prep}
 # create covariate grids for projections
