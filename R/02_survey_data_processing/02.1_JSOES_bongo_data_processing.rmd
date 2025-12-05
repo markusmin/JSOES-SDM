@@ -104,8 +104,6 @@ bongo_catch %>%
 bongo_catch_LH_collapse %>% 
   left_join(bongo_tows, by = "sampleID") %>% 
   ungroup() -> bongo_catch_LH_collapse
-
-bongo_taxon_groups
 ```
 
 
@@ -151,8 +149,8 @@ bongo_taxon_groups <- data.frame(genus_species = bongo_freq_occ$genus_species,
                                    "Non-Cancer crab larvae", "krill", "shrimp larvae",
                                    "snailfishes", "insects", "ronquils/pricklebacks",
                                    "sea butterflies", "Non-Cancer crab larvae", "snailfishes",
-                                   "snailfishes", "sculpins", "salps",
-                                   "Hyperiid amphipod", "flatfishes", "salps",
+                                   "snailfishes", "sculpins", "flatfishes", "salps",
+                                   "Hyperiid amphipod",  "salps",
                                    
                                    "snailfishes", "isopods", "goby",
                                    "Hyperiid amphipod", "snailfishes", "Cnidarians",
@@ -212,6 +210,44 @@ bongo_taxon_groups %>%
 
 # export this for later reference
 write.csv(bongo_taxon_groups, here::here("figures", "JSOES_bongo_functional_groups.csv"))
+
+# export a second version of this table that shows the relative densities
+bongo_catch %>% 
+  group_by(genus_species) %>% 
+  summarise(total = sum(count)) %>% 
+  left_join(dplyr::select(bongo_freq_occ, genus_species, prop_samples), by = "genus_species") -> bongo_catch_summary
+
+bongo_catch_summary %>% 
+  left_join(bongo_taxon_groups, by = "genus_species") %>% 
+  group_by(group) %>% 
+  summarise(group_total = sum(total)) -> bongo_group_catch_summary
+
+bongo_catch_summary %>% 
+  left_join(bongo_taxon_groups, by = "genus_species") %>% 
+  left_join(bongo_group_catch_summary, by = "group") %>% 
+  mutate(prop_group_total = total/group_total) -> bongo_catch_summary
+
+# see what life history stages belong to each taxon
+bongo_catch %>% 
+  group_by(genus_species) %>% 
+  summarise(unique_life_history_stages = unique(life_history_stage)) -> lh_stages_by_genus_species
+
+# drop the adult stages
+lh_stages_by_genus_species <- lh_stages_by_genus_species[!(grepl("adult", lh_stages_by_genus_species$unique_life_history_stages, ignore.case = TRUE)),]
+
+lh_stages_list <- data.frame(genus_species = unique(lh_stages_by_genus_species$genus_species),
+                             life_history_stages = NA)
+
+for (i in 1:length(unique(lh_stages_by_genus_species$genus_species))){
+  lh_stages_list$life_history_stages[i] <- paste(subset(lh_stages_by_genus_species, genus_species == unique(lh_stages_by_genus_species$genus_species)[i])$unique_life_history_stages,collapse = ", ")
+}
+
+bongo_catch_summary %>% 
+  left_join(lh_stages_list, by = "genus_species") %>% 
+  filter(!is.na(life_history_stages)) -> bongo_catch_summary
+
+write.csv(bongo_catch_summary, here::here("figures", "paper_figures", "JSOES_bongo_functional_groups_summary.csv"))
+
 
 # add the groupings to our data
 bongo_catch %>% 
